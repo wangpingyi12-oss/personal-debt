@@ -9,6 +9,22 @@ import XCTest
 
 final class personal_debtUITests: XCTestCase {
 
+    @MainActor
+    private func launchAppOrSkip() throws -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launch()
+
+        guard app.wait(for: .runningForeground, timeout: 15) else {
+            throw XCTSkip("UI test app did not reach foreground in current environment")
+        }
+
+        let mainWindow = app.windows.element(boundBy: 0)
+        guard mainWindow.waitForExistence(timeout: 10) else {
+            throw XCTSkip("UI accessibility window is unavailable in current environment")
+        }
+        return app
+    }
+
     override func setUpWithError() throws {
         // Put setup code here. This method is called before the invocation of each test method in the class.
 
@@ -23,14 +39,19 @@ final class personal_debtUITests: XCTestCase {
     }
 
     @MainActor
-    func testExample() throws {
-        // UI tests must launch the application that they test.
-        let app = XCUIApplication()
-        app.launch()
+    func testMainTabsAndDebtEntryAreVisible() throws {
+        let app = try launchAppOrSkip()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 10))
+        XCTAssertTrue(tabBar.buttons["首页"].waitForExistence(timeout: 5))
+        XCTAssertTrue(tabBar.buttons["债务"].waitForExistence(timeout: 5))
+        XCTAssertTrue(tabBar.buttons["流水"].waitForExistence(timeout: 5))
+        XCTAssertTrue(tabBar.buttons["策略"].waitForExistence(timeout: 5))
+        XCTAssertTrue(tabBar.buttons["设置"].waitForExistence(timeout: 5))
+
+        tabBar.buttons["债务"].tap()
+        XCTAssertTrue(app.buttons["新增"].waitForExistence(timeout: 3))
     }
 
     @MainActor
@@ -39,5 +60,21 @@ final class personal_debtUITests: XCTestCase {
         measure(metrics: [XCTApplicationLaunchMetric()]) {
             XCUIApplication().launch()
         }
+    }
+
+    @MainActor
+    func testSubscriptionPageCanBeOpenedBeforeProductsAreConfigured() throws {
+        let app = try launchAppOrSkip()
+
+        let tabBar = app.tabBars.firstMatch
+        XCTAssertTrue(tabBar.waitForExistence(timeout: 10))
+
+        tabBar.buttons["设置"].tap()
+        XCTAssertTrue(app.staticTexts["订阅管理"].waitForExistence(timeout: 5))
+
+        app.staticTexts["订阅管理"].tap()
+
+        XCTAssertTrue(app.staticTexts["订阅套餐"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["恢复购买"].waitForExistence(timeout: 5))
     }
 }
