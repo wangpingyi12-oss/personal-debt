@@ -29,6 +29,24 @@
 - iOS 17 或更高
 - Xcode 15 或更高
 
+## 文档站点发布（GitHub Pages）
+
+- 文档源目录：`docs/`
+- 已配置自动发布工作流：`.github/workflows/deploy-pages.yml`
+- 目标页面（提审可直接使用）：
+  - `https://wangpingyi12-oss.github.io/personal-debt/privacy-policy-zh-CN.html`
+  - `https://wangpingyi12-oss.github.io/personal-debt/privacy-policy-en-US.html`
+  - `https://wangpingyi12-oss.github.io/personal-debt/support-zh-CN.html`
+  - `https://wangpingyi12-oss.github.io/personal-debt/support-en-US.html`
+
+首次启用注意事项：
+
+1. GitHub 仓库进入 `Settings > Pages`。
+2. `Build and deployment` 选择 `Source: GitHub Actions`。
+3. push 任意对 `docs/` 的改动或手动触发 `Deploy Docs to GitHub Pages`。
+
+建议发布后校验：页面返回 200，且正文可打开显示。
+
 ## 最终上线收口（无迁移版本）
 
 当前版本尚未上线，因此不做历史数据迁移；本版本不包含家庭共享能力，订阅来源统一按 App Store 购买处理。
