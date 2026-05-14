@@ -66,7 +66,12 @@ struct StrategyDashboardView: View {
                 debtKind: .creditCard,
                 balance: $0.currentBalance,
                 monthlyRate: $0.annualRate / 12,
-                overdueAmount: activeOverdueAmount(for: $0.overdues)
+                overdueAmount: activeOverdueAmount(
+                    for: $0.overdues,
+                    isActive: { $0.isActive },
+                    overdueAmount: { $0.overdueAmount },
+                    penaltyAmount: { $0.penaltyAmount }
+                )
             )
         } + loans.filter { $0.isValid && $0.dataDomain == DataIsolationDomain.actual.rawValue }.map {
             SimulatedDebtInput(
@@ -75,7 +80,12 @@ struct StrategyDashboardView: View {
                 debtKind: .loan,
                 balance: $0.remainingPrincipal,
                 monthlyRate: $0.annualRate / 12,
-                overdueAmount: activeOverdueAmount(for: $0.overdues)
+                overdueAmount: activeOverdueAmount(
+                    for: $0.overdues,
+                    isActive: { $0.isActive },
+                    overdueAmount: { $0.overdueAmount },
+                    penaltyAmount: { $0.penaltyAmount }
+                )
             )
         } + personalLendings.filter { $0.isValid && $0.dataDomain == DataIsolationDomain.actual.rawValue }.map {
             SimulatedDebtInput(
@@ -84,7 +94,12 @@ struct StrategyDashboardView: View {
                 debtKind: .personalLending,
                 balance: $0.remainingPrincipal,
                 monthlyRate: $0.annualRate / 12,
-                overdueAmount: activeOverdueAmount(for: $0.overdues)
+                overdueAmount: activeOverdueAmount(
+                    for: $0.overdues,
+                    isActive: { $0.isActive },
+                    overdueAmount: { $0.overdueAmount },
+                    penaltyAmount: { $0.penaltyAmount }
+                )
             )
         }
 
@@ -122,15 +137,14 @@ struct StrategyDashboardView: View {
         try? modelContext.save()
     }
 
-    private func activeOverdueAmount(for overdues: [CreditCardOverdueRecord]) -> Double {
-        overdues.filter { $0.isActive }.reduce(0) { $0 + $1.overdueAmount + $1.penaltyAmount }
-    }
-
-    private func activeOverdueAmount(for overdues: [LoanOverdueRecord]) -> Double {
-        overdues.filter { $0.isActive }.reduce(0) { $0 + $1.overdueAmount + $1.penaltyAmount }
-    }
-
-    private func activeOverdueAmount(for overdues: [PersonalLendingOverdueRecord]) -> Double {
-        overdues.filter { $0.isActive }.reduce(0) { $0 + $1.overdueAmount + $1.penaltyAmount }
+    private func activeOverdueAmount<T>(
+        for overdues: [T],
+        isActive: (T) -> Bool,
+        overdueAmount: (T) -> Double,
+        penaltyAmount: (T) -> Double
+    ) -> Double {
+        overdues
+            .filter(isActive)
+            .reduce(0) { $0 + overdueAmount($1) + penaltyAmount($1) }
     }
 }

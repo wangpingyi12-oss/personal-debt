@@ -24,6 +24,7 @@ enum LoanCalculator {
             case .equalPrincipalAndInterest:
                 let factor = pow(1 + monthlyRate, Double(periods))
                 let denominator = factor - 1
+                // For near-zero denominator we fallback to straight division to avoid unstable annuity division.
                 let monthlyPayment = monthlyRate == 0 || abs(denominator) < 1e-10
                     ? principal / Double(periods)
                     : principal * monthlyRate * factor / denominator

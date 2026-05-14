@@ -39,7 +39,6 @@ struct StrategySimulationMonthDraft {
 }
 
 enum StrategySimulator {
-    private static let overdueBudgetShare = 0.2
 
     static func simulate(
         inputs: [SimulatedDebtInput],
@@ -79,7 +78,7 @@ enum StrategySimulator {
 
             var paidOverdue = 0.0
             if budget > 0 {
-                paidOverdue = min(overdueDue, budget * overdueBudgetShare)
+                paidOverdue = min(overdueDue, budget * DebtBusinessRules.overdueBudgetAllocationShare)
                 budget -= paidOverdue
             }
 

@@ -102,8 +102,6 @@ private struct AddCreditCardDebtView: View {
     @State private var name = ""
     @State private var issuer = ""
     @State private var balance = ""
-    private let minimumCreditLimit = 1_000.0
-    private let creditLimitMultiplier = 1.2
 
     var body: some View {
         NavigationStack {
@@ -121,7 +119,7 @@ private struct AddCreditCardDebtView: View {
                         let debt = CreditCardDebt(
                             name: name.isEmpty ? "信用卡" : name,
                             issuer: issuer.isEmpty ? "未填写" : issuer,
-                            creditLimit: max(minimumCreditLimit, amount * creditLimitMultiplier),
+                            creditLimit: max(DebtBusinessRules.minimumCreditLimit, amount * DebtBusinessRules.creditLimitMultiplier),
                             annualRate: 0.18,
                             statementDay: 1,
                             dueDay: 20,
