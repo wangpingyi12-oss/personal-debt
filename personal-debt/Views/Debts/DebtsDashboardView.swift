@@ -199,49 +199,349 @@ private struct AddLoanDebtView: View {
 private struct AddPersonalLendingDebtView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
+
+    // Basic info
     @State private var name = ""
-    @State private var counterparty = ""
+    @State private var lenderName = ""
+    @State private var note = ""
     @State private var principal = ""
+    @State private var startDate = Date()
+
+    // Interest
+    @State private var hasInterest = false
+    @State private var totalInterest = ""
+
+    // Repayment method
+    @State private var repaymentMethod: PersonalLendingRepaymentMethod = .noFixedPlan
+
+    // For lumpSumAtMaturity
+    @State private var endDate = Date()
+
+    // For equalInstallments
+    @State private var monthlyPaymentDay = "1"
+    @State private var totalPeriods = "12"
+
+    // Optional endDate for noFixedPlan
+    @State private var hasEndDate = false
+    @State private var noFixedPlanEndDate = Date()
+
+    @State private var errorMessage: String?
+
+    private var parsedPrincipal: Double { Double(principal) ?? 0 }
+    private var parsedInterest: Double { Double(totalInterest) ?? 0 }
+    private var parsedPaymentDay: Int { Int(monthlyPaymentDay) ?? 1 }
+    private var parsedPeriods: Int { max(1, Int(totalPeriods) ?? 12) }
 
     var body: some View {
         NavigationStack {
             Form {
-                TextField("名称", text: $name)
-                TextField("对方", text: $counterparty)
-                TextField("本金", text: $principal)
-                    .keyboardType(.decimalPad)
+                Section("基础信息") {
+                    TextField("债务名称", text: $name)
+                    TextField("出借人", text: $lenderName)
+                    TextField("备注（选填）", text: $note)
+                    TextField("借款本金", text: $principal)
+                        .keyboardType(.decimalPad)
+                    DatePicker("借款日期", selection: $startDate, displayedComponents: .date)
+                }
+
+                Section("还款方式") {
+                    Picker("还款方式", selection: $repaymentMethod) {
+                        ForEach(PersonalLendingRepaymentMethod.allCases) { m in
+                            Text(m.displayName).tag(m)
+                        }
+                    }
+                    .onChange(of: repaymentMethod) { _, newValue in
+                        if newValue == .noFixedPlan { hasInterest = false }
+                    }
+
+                    if repaymentMethod == .lumpSumAtMaturity {
+                        DatePicker("约定结束日期", selection: $endDate, displayedComponents: .date)
+                    }
+
+                    if repaymentMethod == .equalInstallments {
+                        TextField("每月还款日（1–31）", text: $monthlyPaymentDay)
+                            .keyboardType(.numberPad)
+                        TextField("总期数", text: $totalPeriods)
+                            .keyboardType(.numberPad)
+                    }
+
+                    if repaymentMethod == .noFixedPlan {
+                        Toggle("填写约定结束日期", isOn: $hasEndDate)
+                        if hasEndDate {
+                            DatePicker("约定结束日期", selection: $noFixedPlanEndDate, displayedComponents: .date)
+                        }
+                    }
+                }
+
+                Section("利息设置") {
+                    Toggle("有息", isOn: $hasInterest)
+                        .disabled(repaymentMethod == .noFixedPlan)
+                    if hasInterest {
+                        TextField("固定总利息", text: $totalInterest)
+                            .keyboardType(.decimalPad)
+                    }
+                }
+
+                if let msg = errorMessage {
+                    Section {
+                        Text(msg).foregroundStyle(.red).font(.caption)
+                    }
+                }
             }
             .navigationTitle("新增个人借贷")
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        let amount = Double(principal) ?? 0
-                        let snapshot = PersonalLendingCalculator.snapshotFacts(
-                            principal: amount,
-                            annualRate: 0.06,
-                            periods: 12,
-                            startDate: .now
-                        )
-                        let debt = PersonalLendingDebt(
-                            name: name.isEmpty ? "个人借贷" : name,
-                            counterparty: counterparty.isEmpty ? "未填写" : counterparty,
-                            principal: amount,
-                            annualRate: 0.06,
-                            startDate: .now,
-                            remainingPrincipal: amount,
-                            userFactSnapshot: snapshot
-                        )
-                        debt.planItems = PersonalLendingCalculator.rebuildPlan(from: snapshot)
-                        modelContext.insert(debt)
-                        try? modelContext.save()
-                        dismiss()
-                    }
+                    Button("保存") { save() }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
                 }
             }
         }
+    }
+
+    private func save() {
+        let p = parsedPrincipal
+        let interest = hasInterest ? parsedInterest : 0.0
+        let computedEndDate: Date? = {
+            switch repaymentMethod {
+            case .lumpSumAtMaturity: return endDate
+            case .noFixedPlan: return hasEndDate ? noFixedPlanEndDate : nil
+            case .equalInstallments: return nil
+            }
+        }()
+
+        do {
+            try PersonalLendingCalculator.validateDebt(
+                principal: p,
+                hasInterest: hasInterest,
+                totalInterest: interest,
+                repaymentMethod: repaymentMethod,
+                startDate: startDate,
+                endDate: computedEndDate,
+                monthlyPaymentDay: parsedPaymentDay,
+                totalPeriods: parsedPeriods
+            )
+        } catch {
+            errorMessage = error.localizedDescription
+            return
+        }
+
+        let debt = PersonalLendingDebt(
+            name: name.isEmpty ? "个人借贷" : name,
+            lenderName: lenderName,
+            note: note,
+            principal: p,
+            hasInterest: hasInterest,
+            totalInterest: interest,
+            startDate: startDate,
+            endDate: computedEndDate,
+            repaymentMethod: repaymentMethod.rawValue,
+            monthlyPaymentDay: parsedPaymentDay,
+            totalPeriods: parsedPeriods
+        )
+
+        // For equalInstallments, derive endDate from generated plan
+        let planItems = PersonalLendingCalculator.buildPlan(for: debt)
+        debt.planItems = planItems
+        if repaymentMethod == .equalInstallments, let lastDate = planItems.last?.dueDate {
+            debt.endDate = lastDate
+        }
+
+        modelContext.insert(debt)
+        PersonalLendingCalculator.fullRecalculate(debt: debt, context: modelContext)
+        try? modelContext.save()
+        dismiss()
+    }
+}
+
+private struct PersonalLendingDebtDetailView: View {
+    @Environment(\.modelContext) private var modelContext
+    @Bindable var debt: PersonalLendingDebt
+
+    @State private var showingAddPayment = false
+    @State private var paymentAmount = ""
+    @State private var paymentDate = Date()
+    @State private var paymentNote = ""
+    @State private var paymentError: String?
+
+    private var method: PersonalLendingRepaymentMethod {
+        PersonalLendingRepaymentMethod(rawValue: debt.repaymentMethod) ?? .noFixedPlan
+    }
+
+    private var nextDue: PersonalLendingCalculator.NextDueInfo {
+        PersonalLendingCalculator.nextDueInfo(for: debt)
+    }
+
+    private var isPastDue: Bool { debt.pastDueDebtCount > 0 }
+
+    var body: some View {
+        List {
+            Section("基础信息") {
+                LabeledContent("出借人", value: debt.lenderName.isEmpty ? "—" : debt.lenderName)
+                LabeledContent("还款方式", value: method.displayName)
+                LabeledContent("借款本金", value: debt.principal, format: .currency(code: currencyCode))
+                if debt.hasInterest {
+                    LabeledContent("固定总利息", value: debt.totalInterest, format: .currency(code: currencyCode))
+                }
+                LabeledContent("总应还金额", value: debt.totalAmountDue, format: .currency(code: currencyCode))
+                LabeledContent("已还金额", value: debt.paidAmount, format: .currency(code: currencyCode))
+                LabeledContent("剩余金额", value: debt.remainingAmount, format: .currency(code: currencyCode))
+                LabeledContent("状态", value: debt.status)
+                if let endDate = debt.endDate {
+                    LabeledContent("约定结束日期", value: endDate, format: .dateTime.year().month().day())
+                }
+                if !debt.note.isEmpty {
+                    LabeledContent("备注", value: debt.note)
+                }
+            }
+
+            if isPastDue {
+                Section {
+                    HStack {
+                        Image(systemName: "exclamationmark.circle.fill")
+                            .foregroundStyle(.orange)
+                        Text("已超过约定还款日")
+                            .foregroundStyle(.orange)
+                    }
+                    LabeledContent("已过约定日未还金额",
+                                   value: debt.pastDueScheduledAmount,
+                                   format: .currency(code: currencyCode))
+                }
+            }
+
+            if let dueDate = nextDue.dueDate, nextDue.dueAmount > 0 {
+                Section("下一期待还") {
+                    LabeledContent("日期", value: dueDate, format: .dateTime.year().month().day())
+                    LabeledContent("金额", value: nextDue.dueAmount, format: .currency(code: currencyCode))
+                }
+            }
+
+            if !debt.planItems.isEmpty {
+                Section("还款计划") {
+                    ForEach(debt.planItems.sorted(by: { $0.sequence < $1.sequence })) { item in
+                        VStack(alignment: .leading, spacing: 2) {
+                            HStack {
+                                Text("第\(item.sequence)期")
+                                    .font(.subheadline)
+                                Spacer()
+                                Text(item.dueDate, format: .dateTime.year().month().day())
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            HStack {
+                                Text("应还：\(item.totalDue, format: .currency(code: currencyCode))")
+                                    .font(.caption)
+                                Spacer()
+                                Text("剩余：\(item.remainingAmount, format: .currency(code: currencyCode))")
+                                    .font(.caption)
+                                    .foregroundStyle(item.remainingAmount > 0 ? .primary : .secondary)
+                            }
+                            Text("状态：\(item.state)")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
+                    }
+                }
+            }
+
+            Section("还款流水") {
+                Button("新增还款流水") {
+                    paymentAmount = ""
+                    paymentDate = Date()
+                    paymentNote = ""
+                    paymentError = nil
+                    showingAddPayment = true
+                }
+                .disabled(debt.remainingAmount <= 0.001)
+
+                ForEach(debt.transactions.filter { $0.isValid }.sorted(by: { $0.occurredAt > $1.occurredAt })) { tx in
+                    HStack {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text(tx.amount, format: .currency(code: currencyCode))
+                                .font(.subheadline)
+                            if !tx.note.isEmpty {
+                                Text(tx.note).font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        Spacer()
+                        Text(tx.occurredAt, format: .dateTime.year().month().day())
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button("删除", role: .destructive) {
+                            try? TransactionOrchestrator.deletePersonalLendingPayment(
+                                transaction: tx,
+                                debt: debt,
+                                context: modelContext
+                            )
+                        }
+                    }
+                }
+            }
+
+            Section("统计") {
+                LabeledContent("还款进度") {
+                    let progress = debt.totalAmountDue > 0 ? debt.paidAmount / debt.totalAmountDue : 0
+                    Text("\(Int(progress * 100))%")
+                }
+                if debt.pastDuePlanCount > 0 {
+                    LabeledContent("已过约定日未还计划数", value: "\(debt.pastDuePlanCount)")
+                }
+            }
+        }
+        .navigationTitle(debt.name)
+        .sheet(isPresented: $showingAddPayment) {
+            addPaymentSheet
+        }
+    }
+
+    @ViewBuilder
+    private var addPaymentSheet: some View {
+        NavigationStack {
+            Form {
+                Section("还款信息") {
+                    TextField("还款金额", text: $paymentAmount)
+                        .keyboardType(.decimalPad)
+                    DatePicker("还款日期", selection: $paymentDate, displayedComponents: .date)
+                    TextField("备注（选填）", text: $paymentNote)
+                }
+                if let err = paymentError {
+                    Section {
+                        Text(err).foregroundStyle(.red).font(.caption)
+                    }
+                }
+            }
+            .navigationTitle("新增还款流水")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("保存") {
+                        let amount = Double(paymentAmount) ?? 0
+                        do {
+                            try TransactionOrchestrator.addPersonalLendingPayment(
+                                amount: amount,
+                                occurredAt: paymentDate,
+                                note: paymentNote,
+                                debt: debt,
+                                context: modelContext
+                            )
+                            showingAddPayment = false
+                        } catch {
+                            paymentError = error.localizedDescription
+                        }
+                    }
+                }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("取消") { showingAddPayment = false }
+                }
+            }
+        }
+    }
+
+    private var currencyCode: String {
+        Locale.current.currency?.identifier ?? "CNY"
     }
 }
 
@@ -339,39 +639,4 @@ private struct LoanDebtDetailView: View {
     }
 }
 
-private struct PersonalLendingDebtDetailView: View {
-    @Environment(\.modelContext) private var modelContext
-    @Bindable var debt: PersonalLendingDebt
 
-    var body: some View {
-        List {
-            Section("基础信息") {
-                Text("对方：\(debt.counterparty)")
-                Text("本金：\(debt.principal, format: .number)")
-                Text("剩余：\(debt.remainingPrincipal, format: .number)")
-                Text("状态：\(debt.status)")
-            }
-            Section("计划") {
-                ForEach(debt.planItems.sorted(by: { $0.sequence < $1.sequence })) { item in
-                    Text("第\(item.sequence)期：\(item.totalDue, format: .number)")
-                }
-            }
-            Section("流水") {
-                Button("新增还款流水") {
-                    try? TransactionOrchestrator.appendPersonalLendingPayment(amount: 200, debt: debt, context: modelContext)
-                }
-            }
-            Section("逾期") {
-                Button("新增逾期") {
-                    debt.overdues.append(PersonalLendingOverdueRecord(startDate: .now, overdueAmount: 100, debt: debt))
-                    debt.status = DebtLifecycleStatus.overdue.rawValue
-                    try? modelContext.save()
-                }
-            }
-            Section("统计") {
-                Text("计划数：\(debt.planItems.count)")
-            }
-        }
-        .navigationTitle(debt.name)
-    }
-}

@@ -38,7 +38,7 @@ struct AnalyticsDashboardView: View {
     private var totalActualBalance: Double {
         creditCards.filter { $0.dataDomain == DataIsolationDomain.actual.rawValue }.reduce(0) { $0 + $1.currentBalance }
         + loans.filter { $0.dataDomain == DataIsolationDomain.actual.rawValue }.reduce(0) { $0 + $1.remainingPrincipal }
-        + personalLendings.filter { $0.dataDomain == DataIsolationDomain.actual.rawValue }.reduce(0) { $0 + $1.remainingPrincipal }
+        + personalLendings.filter { $0.dataDomain == DataIsolationDomain.actual.rawValue }.reduce(0) { $0 + $1.remainingAmount }
     }
 
     private var monthlyCashOut: Double {
@@ -60,6 +60,5 @@ struct AnalyticsDashboardView: View {
     private var overdueCost: Double {
         creditCards.flatMap(\.overdues).reduce(0) { $0 + $1.penaltyAmount }
         + loans.flatMap(\.overdues).reduce(0) { $0 + $1.penaltyAmount }
-        + personalLendings.flatMap(\.overdues).reduce(0) { $0 + $1.penaltyAmount }
     }
 }

@@ -2,6 +2,7 @@ import Foundation
 
 enum DebtLifecycleStatus: String, CaseIterable, Codable, Identifiable {
     case active
+    case partiallyPaid
     case overdue
     case paidOff
     case archived
@@ -11,6 +12,7 @@ enum DebtLifecycleStatus: String, CaseIterable, Codable, Identifiable {
 
 enum RecordState: String, CaseIterable, Codable, Identifiable {
     case pending
+    case partiallyPaid
     case paid
 
     var id: String { rawValue }

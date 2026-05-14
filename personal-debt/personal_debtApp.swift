@@ -19,7 +19,7 @@ struct personal_debtApp: App {
             PersonalLendingDebt.self,
             PersonalLendingPlanItem.self,
             PersonalLendingTransaction.self,
-            PersonalLendingOverdueRecord.self,
+            PersonalLendingAllocation.self,
             StrategySimulationSnapshot.self,
             StrategySimulationMonth.self,
             ReminderRule.self

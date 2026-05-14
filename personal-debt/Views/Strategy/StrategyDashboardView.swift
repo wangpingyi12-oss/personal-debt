@@ -92,14 +92,9 @@ struct StrategyDashboardView: View {
                 id: $0.id,
                 name: $0.name,
                 debtKind: .personalLending,
-                balance: $0.remainingPrincipal,
-                monthlyRate: $0.annualRate / 12,
-                overdueAmount: activeOverdueAmount(
-                    for: $0.overdues,
-                    isActive: { $0.isActive },
-                    overdueAmount: { $0.overdueAmount },
-                    penaltyAmount: { $0.penaltyAmount }
-                )
+                balance: $0.remainingAmount,
+                monthlyRate: PersonalLendingCalculator.simpleCostRate(for: $0),
+                overdueAmount: 0
             )
         }
 
