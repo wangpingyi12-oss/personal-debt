@@ -152,14 +152,6 @@ enum PersonalLendingCalculator {
         return calendar.date(from: components) ?? firstOfMonth
     }
 
-    private static func lastDayOfMonth(year: Int, month: Int, calendar: Calendar) -> Date {
-        var components = DateComponents()
-        components.year = year
-        components.month = month + 1
-        components.day = 0
-        return calendar.date(from: components) ?? Date()
-    }
-
     // MARK: Full Recalculate
 
     /// Full recalculation: resets all plan/debt amounts, replays all transactions in canonical order,
