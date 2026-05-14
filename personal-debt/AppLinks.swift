@@ -8,6 +8,8 @@ struct ExternalLinkItem: Identifiable, Hashable {
 }
 
 enum AppExternalLinks {
+    private static let supportEmailAddress = "wangpingyi12@outlook.com"
+
     static let manageSubscriptions = ExternalLinkItem(
         id: "manage-subscriptions",
         title: "管理 App Store 订阅",
@@ -60,8 +62,8 @@ enum AppExternalLinks {
     static let supportEmail = ExternalLinkItem(
         id: "support-email",
         title: "联系邮箱",
-        subtitle: "wangpingyi12@outlook.com",
-        url: URL(string: "mailto:wangpingyi12@outlook.com")!
+        subtitle: supportEmailAddress,
+        url: URL(string: "mailto:\(supportEmailAddress)")!
     )
 
     static let subscriptionLinks = [manageSubscriptions]

@@ -122,7 +122,7 @@ enum SubscriptionCatalogService {
     }
 
     private static func introEligibility(for product: Product?) async -> Bool {
-        guard let subscription = product?.subscription else { return false }
+        guard let product, let subscription = product.subscription else { return false }
         return await subscription.isEligibleForIntroOffer
     }
 }
