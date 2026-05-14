@@ -16,9 +16,9 @@ enum SubscriptionLifecycleStatus: String, CaseIterable, Codable, Identifiable {
     var isEntitled: Bool {
         switch self {
         case .trial, .active, .expiringSoon, .gracePeriod:
-            true
+            return true
         case .inactive, .billingRetry, .expired, .revoked, .verificationFailed:
-            false
+            return false
         }
     }
 }
