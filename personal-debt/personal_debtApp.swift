@@ -1,4 +1,5 @@
 import SwiftUI
+import SwiftData
 
 @main
 struct personal_debtApp: App {
@@ -6,5 +7,22 @@ struct personal_debtApp: App {
         WindowGroup {
             ContentView()
         }
+        .modelContainer(for: [
+            CreditCardDebt.self,
+            CreditCardBill.self,
+            CreditCardTransaction.self,
+            CreditCardOverdueRecord.self,
+            LoanDebt.self,
+            LoanInstallment.self,
+            LoanTransaction.self,
+            LoanOverdueRecord.self,
+            PersonalLendingDebt.self,
+            PersonalLendingPlanItem.self,
+            PersonalLendingTransaction.self,
+            PersonalLendingOverdueRecord.self,
+            StrategySimulationSnapshot.self,
+            StrategySimulationMonth.self,
+            ReminderRule.self
+        ])
     }
 }

@@ -1,31 +1,39 @@
 # personal-debt
 
-该仓库现已精简为一个 **iOS 17+ SwiftUI / StoreKit 示例工程**，仅保留以下能力：
+该仓库当前为 **iOS 17+ SwiftUI + SwiftData** 的本地优先债务管理应用，保留并复用订阅能力（StoreKit）。
 
-- 订阅套餐展示、购买、恢复购买与权益同步
-- 隐私政策、Apple 条款、Apple 隐私政策等法务外链入口
-- 支持页面与联系邮箱入口
+## 当前能力范围（V1）
 
-其余与债务管理、还款计划、策略分析、提醒通知、统计展示相关的页面、模型、服务和测试均已移除。
+- 本地优先（SwiftData）
+- 三类债务：信用卡 / 贷款 / 个人借贷
+- 基础 CRUD、流水与逾期记录、状态重算
+- 策略模拟：雪崩 / 雪球 / 均衡（最长 360 个月）
+- 总览与统计页（真实数据与模拟数据隔离）
+- 规则页（本地提醒规则）
+- 设置页保留订阅中心、隐私政策、条款、支持入口
 
-## 当前保留的主要文件
+## 导航结构
 
-- `personal-debt/personal_debtApp.swift`：最小应用入口
-- `personal-debt/ContentView.swift`：仅保留订阅 / 法务隐私 / 支持入口导航
-- `personal-debt/SubscriptionManagementView.swift`：订阅中心页面
-- `personal-debt/SubscriptionServices.swift`：StoreKit 商品加载、购买、恢复与权益状态解析
-- `personal-debt/Item.swift`：最小订阅状态模型
-- `personal-debt/AppLinks.swift`：隐私、条款、支持相关外链集中定义
-- `personal-debt/UIComponents.swift`：精简后的共享 UI 组件
+- 总览
+- 债务
+- 策略
+- 统计
+- 规则
+- 设置
 
-## 外链文档
+## 关键目录
 
-项目文档站点仍保留以下页面：
+- `/home/runner/work/personal-debt/personal-debt/personal-debt/Models`
+  - `CreditCard` / `Loan` / `PersonalLending` / `Strategy` / `Analysis` / `Rules` / `Shared`
+- `/home/runner/work/personal-debt/personal-debt/personal-debt/Services/Calculation`
+- `/home/runner/work/personal-debt/personal-debt/personal-debt/Repositories`
+- `/home/runner/work/personal-debt/personal-debt/personal-debt/ViewModels`
+- `/home/runner/work/personal-debt/personal-debt/personal-debt/Views`
 
-- `https://wangpingyi12-oss.github.io/personal-debt/privacy-policy-zh-CN.html`
-- `https://wangpingyi12-oss.github.io/personal-debt/privacy-policy-en-US.html`
-- `https://wangpingyi12-oss.github.io/personal-debt/support-zh-CN.html`
-- `https://wangpingyi12-oss.github.io/personal-debt/support-en-US.html`
+## 订阅与法务入口
+
+- 设置页中的 `订阅中心`
+- 设置页中的隐私政策、Apple 条款与支持链接
 
 ## 本地打开
 

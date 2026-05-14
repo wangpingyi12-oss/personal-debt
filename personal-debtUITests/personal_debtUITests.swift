@@ -22,32 +22,27 @@ final class personal_debtUITests: XCTestCase {
     }
 
     @MainActor
-    func testHomeShowsOnlyRetainedEntryPoints() throws {
+    func testMainTabsAreVisible() throws {
         let app = try launchAppOrSkip()
 
-        XCTAssertTrue(app.staticTexts["订阅中心"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["法务与隐私"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["支持与联系"].waitForExistence(timeout: 5))
-
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = "Simplified Home"
-        attachment.lifetime = .keepAlways
-        add(attachment)
+        XCTAssertTrue(app.tabBars.buttons["总览"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["债务"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["策略"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["统计"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["规则"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["设置"].waitForExistence(timeout: 5))
     }
 
     @MainActor
-    func testSubscriptionCenterOpensAndShowsPurchaseActions() throws {
+    func testSubscriptionCenterCanBeOpenedFromSettings() throws {
         let app = try launchAppOrSkip()
 
+        app.tabBars.buttons["设置"].tap()
+        XCTAssertTrue(app.staticTexts["订阅中心"].waitForExistence(timeout: 5))
         app.staticTexts["订阅中心"].tap()
 
         XCTAssertTrue(app.staticTexts["订阅套餐"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["恢复购买"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.buttons["校验并同步"].waitForExistence(timeout: 5))
-
-        let attachment = XCTAttachment(screenshot: app.screenshot())
-        attachment.name = "Subscription Center"
-        attachment.lifetime = .keepAlways
-        add(attachment)
     }
 }
