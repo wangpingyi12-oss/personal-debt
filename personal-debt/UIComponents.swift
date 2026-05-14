@@ -4,8 +4,8 @@ struct AppColors {
     static let primaryBlue = Color(red: 0.0, green: 0.48, blue: 1.0)
     static let accentGreen = Color(red: 0.2, green: 0.78, blue: 0.35)
     static let warningOrange = Color(red: 1.0, green: 0.58, blue: 0.0)
-    static let backgroundGray = Color(uiColor: .systemGroupedBackground)
-    static let cardBackground = Color(uiColor: .secondarySystemGroupedBackground)
+    static let backgroundGray = Color(UIColor.systemGroupedBackground)
+    static let cardBackground = Color(UIColor.secondarySystemGroupedBackground)
 }
 
 struct SectionHeader: View {
