@@ -23,9 +23,10 @@ enum LoanCalculator {
             switch method {
             case .equalPrincipalAndInterest:
                 let factor = pow(1 + monthlyRate, Double(periods))
-                let monthlyPayment = monthlyRate == 0
+                let denominator = factor - 1
+                let monthlyPayment = monthlyRate == 0 || abs(denominator) < 1e-10
                     ? principal / Double(periods)
-                    : principal * monthlyRate * factor / (factor - 1)
+                    : principal * monthlyRate * factor / denominator
                 interestDue = remaining * monthlyRate
                 principalDue = max(0, monthlyPayment - interestDue)
             case .equalPrincipal:

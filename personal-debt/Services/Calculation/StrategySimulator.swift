@@ -7,6 +7,17 @@ struct SimulatedDebtInput: Identifiable {
     let balance: Double
     let monthlyRate: Double
     let overdueAmount: Double
+
+    func withBalance(_ newBalance: Double) -> SimulatedDebtInput {
+        SimulatedDebtInput(
+            id: id,
+            name: name,
+            debtKind: debtKind,
+            balance: newBalance,
+            monthlyRate: monthlyRate,
+            overdueAmount: overdueAmount
+        )
+    }
 }
 
 struct StrategySimulationResult {
@@ -28,6 +39,8 @@ struct StrategySimulationMonthDraft {
 }
 
 enum StrategySimulator {
+    private static let overdueBudgetShare = 0.2
+
     static func simulate(
         inputs: [SimulatedDebtInput],
         mode: StrategyMode,
@@ -61,12 +74,12 @@ enum StrategySimulator {
             }
 
             var budget = monthlyBudget
-            var paidInterest = min(interest, budget)
+            let paidInterest = min(interest, budget)
             budget -= paidInterest
 
             var paidOverdue = 0.0
             if budget > 0 {
-                paidOverdue = min(overdueDue, budget * 0.2)
+                paidOverdue = min(overdueDue, budget * overdueBudgetShare)
                 budget -= paidOverdue
             }
 
@@ -90,14 +103,7 @@ enum StrategySimulator {
             for idx in working.indices {
                 guard budget > 0 else { break }
                 let pay = min(working[idx].balance, budget)
-                working[idx] = SimulatedDebtInput(
-                    id: working[idx].id,
-                    name: working[idx].name,
-                    debtKind: working[idx].debtKind,
-                    balance: max(0, working[idx].balance - pay),
-                    monthlyRate: working[idx].monthlyRate,
-                    overdueAmount: working[idx].overdueAmount
-                )
+                working[idx] = working[idx].withBalance(max(0, working[idx].balance - pay))
                 principalPaid += pay
                 budget -= pay
             }

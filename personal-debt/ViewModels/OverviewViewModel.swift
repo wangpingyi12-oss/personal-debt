@@ -20,8 +20,13 @@ struct OverviewViewModel {
             + loans.flatMap(\.overdues).filter { $0.isActive && $0.isValid }.reduce(0) { $0 + $1.overdueAmount + $1.penaltyAmount }
             + personalLendings.flatMap(\.overdues).filter { $0.isActive && $0.isValid }.reduce(0) { $0 + $1.overdueAmount + $1.penaltyAmount }
 
-        let completed = max(0, (creditCards.reduce(0) { $0 + $1.creditLimit } + loans.reduce(0) { $0 + $1.principal } + personalLendings.reduce(0) { $0 + $1.principal }) - totalRemaining)
-        let totalPrincipal = max(1, creditCards.reduce(0) { $0 + $1.creditLimit } + loans.reduce(0) { $0 + $1.principal } + personalLendings.reduce(0) { $0 + $1.principal })
+        let creditLimitTotal = creditCards.reduce(0) { $0 + $1.creditLimit }
+        let loanPrincipalTotal = loans.reduce(0) { $0 + $1.principal }
+        let personalLendingPrincipalTotal = personalLendings.reduce(0) { $0 + $1.principal }
+        let totalPrincipalRaw = creditLimitTotal + loanPrincipalTotal + personalLendingPrincipalTotal
+
+        let completed = max(0, totalPrincipalRaw - totalRemaining)
+        let totalPrincipal = max(1, totalPrincipalRaw)
         let progress = min(1, completed / totalPrincipal)
 
         let todoCount = Int((monthDue > 0 ? 1 : 0) + (overdue > 0 ? 1 : 0))

@@ -69,24 +69,27 @@ struct DebtsDashboardView: View {
     }
 
     private func deleteCreditCard(at offsets: IndexSet) {
+        let visibleItems = creditCards.filter { $0.isValid && $0.dataDomain == DataIsolationDomain.actual.rawValue }
         for index in offsets {
-            let item = creditCards[index]
+            let item = visibleItems[index]
             item.isValid = false
         }
         try? modelContext.save()
     }
 
     private func deleteLoan(at offsets: IndexSet) {
+        let visibleItems = loans.filter { $0.isValid && $0.dataDomain == DataIsolationDomain.actual.rawValue }
         for index in offsets {
-            let item = loans[index]
+            let item = visibleItems[index]
             item.isValid = false
         }
         try? modelContext.save()
     }
 
     private func deletePersonalLending(at offsets: IndexSet) {
+        let visibleItems = personalLendings.filter { $0.isValid && $0.dataDomain == DataIsolationDomain.actual.rawValue }
         for index in offsets {
-            let item = personalLendings[index]
+            let item = visibleItems[index]
             item.isValid = false
         }
         try? modelContext.save()
@@ -99,6 +102,8 @@ private struct AddCreditCardDebtView: View {
     @State private var name = ""
     @State private var issuer = ""
     @State private var balance = ""
+    private let minimumCreditLimit = 1_000.0
+    private let creditLimitMultiplier = 1.2
 
     var body: some View {
         NavigationStack {
@@ -116,7 +121,7 @@ private struct AddCreditCardDebtView: View {
                         let debt = CreditCardDebt(
                             name: name.isEmpty ? "信用卡" : name,
                             issuer: issuer.isEmpty ? "未填写" : issuer,
-                            creditLimit: max(1000, amount * 1.2),
+                            creditLimit: max(minimumCreditLimit, amount * creditLimitMultiplier),
                             annualRate: 0.18,
                             statementDay: 1,
                             dueDay: 20,
