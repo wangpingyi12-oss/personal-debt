@@ -4,7 +4,7 @@ import StoreKit
 enum SubscriptionAppStoreConfig {
     static let monthlyProductID = "com.personaldebt.pro.monthly"
     static let yearlyProductID = "com.personaldebt.pro.yearly"
-    static let introMessage = "如有试用或优惠资格，购买页会自动显示。"
+    static let introMessage = "如有试用或优惠资格，购买页会自动显示"
 }
 
 struct SubscriptionCatalogItem: Identifiable, Hashable {
@@ -56,7 +56,7 @@ enum SubscriptionCatalogService {
         SubscriptionCatalogItem(
             id: SubscriptionAppStoreConfig.monthlyProductID,
             title: "连续包月",
-            subtitle: "适合希望按月管理订阅的用户。",
+            subtitle: "适合希望按月管理订阅的用户",
             fallbackPrice: "¥10/月",
             introBadgeText: SubscriptionAppStoreConfig.introMessage,
             benefits: ["通过 App Store 购买自动续费订阅", "支持恢复购买", "可随时跳转到 Apple 订阅管理页"],
@@ -65,7 +65,7 @@ enum SubscriptionCatalogService {
         SubscriptionCatalogItem(
             id: SubscriptionAppStoreConfig.yearlyProductID,
             title: "连续包年",
-            subtitle: "适合长期持续使用订阅服务的用户。",
+            subtitle: "适合长期持续使用订阅服务的用户",
             fallbackPrice: "¥80/年",
             introBadgeText: SubscriptionAppStoreConfig.introMessage,
             benefits: ["通过 App Store 购买自动续费订阅", "支持恢复购买", "适合作为长期订阅方案"],
@@ -82,7 +82,7 @@ enum SubscriptionCatalogService {
             ?? SubscriptionCatalogItem(
                 id: productID,
                 title: productID,
-                subtitle: "未在本地目录中配置说明。",
+                subtitle: "未在本地目录中配置说明",
                 fallbackPrice: "待配置",
                 introBadgeText: "",
                 benefits: ["请检查 App Store Connect 或 StoreKit 配置。"],

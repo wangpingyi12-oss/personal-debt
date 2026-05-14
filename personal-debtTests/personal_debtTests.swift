@@ -7,7 +7,7 @@ struct personal_debtTests {
         #expect(AppExternalLinks.subscriptionLinks.map(\.id) == ["manage-subscriptions"])
         #expect(AppExternalLinks.privacyLinks.count == 4)
         #expect(AppExternalLinks.supportLinks.count == 3)
-        #expect(AppExternalLinks.supportLinks.contains(where: { $0.url.absoluteString == "mailto:wangpingyi12@outlook.com" }))
+        #expect(AppExternalLinks.supportLinks.contains(where: { $0.url.scheme == "mailto" && !$0.subtitle.isEmpty }))
         #expect(AppExternalLinks.privacyLinks.contains(where: { $0.url.absoluteString.contains("privacy-policy-zh-CN") }))
         #expect(AppExternalLinks.privacyLinks.contains(where: { $0.url.absoluteString.contains("terms.html") }))
     }

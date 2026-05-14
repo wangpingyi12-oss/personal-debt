@@ -27,7 +27,7 @@ enum SubscriptionVerificationState: String, CaseIterable, Codable, Identifiable 
     case notChecked = "未校验"
     case verified = "已验证"
     case failed = "验证失败"
-    case notAvailable = "商品不可用"
+    case unavailable = "商品不可用"
 
     var id: String { rawValue }
 }

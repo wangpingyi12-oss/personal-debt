@@ -10,6 +10,7 @@ struct ExternalLinkItem: Identifiable, Hashable {
 enum AppExternalLinks {
     private static let defaultSupportEmailAddress = "wangpingyi12@outlook.com"
 
+    // 可选：在目标的 Info.plist 中配置 SupportEmail，以覆盖默认支持邮箱。
     private static var supportEmailAddress: String {
         (Bundle.main.object(forInfoDictionaryKey: "SupportEmail") as? String) ?? defaultSupportEmailAddress
     }
