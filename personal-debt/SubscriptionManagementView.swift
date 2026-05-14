@@ -23,6 +23,12 @@ struct SubscriptionManagementView: View {
         isLoading || isRestoring || purchasingProductID != nil
     }
 
+    private var combinedFeedbackMessage: String {
+        ([feedbackMessage] + warnings)
+            .filter { !$0.isEmpty }
+            .joined(separator: "\n")
+    }
+
     var body: some View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
@@ -62,7 +68,7 @@ struct SubscriptionManagementView: View {
         .alert("操作结果", isPresented: $isShowingFeedback) {
             Button("知道了", role: .cancel) { }
         } message: {
-            Text(([feedbackMessage] + warnings).filter { !$0.isEmpty }.joined(separator: "\n"))
+            Text(combinedFeedbackMessage)
         }
     }
 

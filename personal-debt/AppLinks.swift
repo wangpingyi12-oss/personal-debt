@@ -8,7 +8,11 @@ struct ExternalLinkItem: Identifiable, Hashable {
 }
 
 enum AppExternalLinks {
-    private static let supportEmailAddress = "wangpingyi12@outlook.com"
+    private static let defaultSupportEmailAddress = "wangpingyi12@outlook.com"
+
+    private static var supportEmailAddress: String {
+        (Bundle.main.object(forInfoDictionaryKey: "SupportEmail") as? String) ?? defaultSupportEmailAddress
+    }
 
     static let manageSubscriptions = ExternalLinkItem(
         id: "manage-subscriptions",

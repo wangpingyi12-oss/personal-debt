@@ -12,7 +12,7 @@ struct SubscriptionCatalogItem: Identifiable, Hashable {
     let title: String
     let subtitle: String
     let fallbackPrice: String
-    let introBadgeText: String?
+    let introBadgeText: String
     let benefits: [String]
     let sortOrder: Int
 }
@@ -84,7 +84,7 @@ enum SubscriptionCatalogService {
                 title: productID,
                 subtitle: "未在本地目录中配置说明。",
                 fallbackPrice: "待配置",
-                introBadgeText: nil,
+                introBadgeText: "",
                 benefits: ["请检查 App Store Connect 或 StoreKit 配置。"],
                 sortOrder: .max
             )
@@ -176,7 +176,7 @@ enum SubscriptionStatusResolver {
             return .revoked
         }
         guard let renewalState else {
-            if let expirationDate = transaction.expirationDate, expirationDate <= now {
+            if let expirationDate = transaction.expirationDate, expirationDate < now {
                 return .expired
             }
             return .unknown
