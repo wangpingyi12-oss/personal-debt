@@ -15,11 +15,11 @@ struct SubscriptionView: View {
                 }
                 .padding()
             }
-            .navigationTitle("Subscription")
+            .navigationTitle("subscription.title")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Done") {
+                    Button("common.done") {
                         dismiss()
                     }
                 }
@@ -36,7 +36,7 @@ struct SubscriptionView: View {
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
 
-            Text("Start with 15 days free. After the trial, keep full editing access with one auto-renewable subscription. Existing data remains viewable if you do not subscribe.")
+            Text("subscription.header.copy")
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
         }
@@ -58,7 +58,7 @@ struct SubscriptionView: View {
 
     private var planPicker: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Choose a Plan")
+            Text("subscription.choosePlan")
                 .font(.headline)
 
             ForEach(subscriptionStore.products) { option in
@@ -78,7 +78,7 @@ struct SubscriptionView: View {
                                     .font(.headline)
 
                                 if option.isYearly {
-                                    Text("Best value")
+                                    Text("subscription.bestValue")
                                         .font(.caption)
                                         .fontWeight(.semibold)
                                         .padding(.horizontal, 8)
@@ -100,7 +100,7 @@ struct SubscriptionView: View {
                                 .font(.headline)
 
                             if option.isFallbackPrice {
-                                Text("Fallback")
+                                Text("subscription.fallback")
                                     .font(.caption2)
                                     .foregroundStyle(.secondary)
                             }
@@ -113,7 +113,7 @@ struct SubscriptionView: View {
             }
 
             if subscriptionStore.isLoadingProducts {
-                Label("Loading App Store prices", systemImage: "arrow.triangle.2.circlepath")
+                Label("subscription.loadingPrices", systemImage: "arrow.triangle.2.circlepath")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -132,7 +132,7 @@ struct SubscriptionView: View {
                 if subscriptionStore.isRestoring {
                     ProgressView()
                 } else {
-                    Label("Restore Purchases", systemImage: "arrow.clockwise")
+                    Label("subscription.restore", systemImage: "arrow.clockwise")
                 }
             }
             .buttonStyle(.borderedProminent)
@@ -142,14 +142,14 @@ struct SubscriptionView: View {
 
     private var complianceDetails: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Subscription Terms")
+            Text("subscription.terms.title")
                 .font(.headline)
 
-            Label("No feature tiers: one subscription unlocks full editing access.", systemImage: "checkmark.circle")
-            Label("Payment is charged to your Apple ID through App Store In-App Purchase.", systemImage: "apple.logo")
-            Label("The subscription renews automatically unless cancelled at least 24 hours before the end of the current period.", systemImage: "repeat")
-            Label("You can manage or cancel the subscription in your App Store account settings.", systemImage: "person.crop.circle")
-            Label("After the free trial ends, a subscription is required for edits. Existing data remains available to view.", systemImage: "eye")
+            Label("subscription.terms.noTiers", systemImage: "checkmark.circle")
+            Label("subscription.terms.appleCharge", systemImage: "apple.logo")
+            Label("subscription.terms.autoRenew", systemImage: "repeat")
+            Label("subscription.terms.manage", systemImage: "person.crop.circle")
+            Label("subscription.terms.readOnly", systemImage: "eye")
         }
         .font(.subheadline)
         .foregroundStyle(.secondary)
@@ -157,23 +157,23 @@ struct SubscriptionView: View {
 
     private var legalLinks: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("Legal")
+            Text("subscription.legal")
                 .font(.headline)
 
             Link(destination: SubscriptionCatalog.termsOfUseURL) {
-                Label("Terms of Use", systemImage: "doc.text")
+                Label("subscription.termsOfUse", systemImage: "doc.text")
             }
 
             Link(destination: SubscriptionCatalog.privacyPolicyURL) {
-                Label("Privacy Policy", systemImage: "hand.raised")
+                Label("subscription.privacyPolicy", systemImage: "hand.raised")
             }
 
             Link(destination: SubscriptionCatalog.applePrivacyURL) {
-                Label("Apple Privacy", systemImage: "apple.logo")
+                Label("subscription.applePrivacy", systemImage: "apple.logo")
             }
 
             Link(destination: SubscriptionCatalog.manageSubscriptionsURL) {
-                Label("Manage Subscription", systemImage: "gearshape")
+                Label("subscription.manage", systemImage: "gearshape")
             }
         }
         .font(.subheadline)

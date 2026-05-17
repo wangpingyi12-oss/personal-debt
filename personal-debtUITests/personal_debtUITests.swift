@@ -24,20 +24,37 @@ final class personal_debtUITests: XCTestCase {
 
     @MainActor
     func testExample() throws {
-        // UI tests must launch the application that they test.
         let app = XCUIApplication()
+        app.launchArguments = ["-UITestSkipOnboarding", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
         app.launch()
 
-        // Use XCTAssert and related functions to verify your tests produce the correct results.
-        // XCUIAutomation Documentation
-        // https://developer.apple.com/documentation/xcuiautomation
+        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["Debts"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Payments"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Strategy"].exists)
+        XCTAssertTrue(app.tabBars.buttons["Statistics"].exists)
+    }
+
+    @MainActor
+    func testChineseLocalizationLaunchesDashboard() throws {
+        let app = XCUIApplication()
+        app.launchArguments = ["-UITestSkipOnboarding", "-AppleLanguages", "(zh-Hans)", "-AppleLocale", "zh_Hans"]
+        app.launch()
+
+        XCTAssertTrue(app.tabBars.buttons["总览"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.tabBars.buttons["债务"].exists)
+        XCTAssertTrue(app.tabBars.buttons["流水"].exists)
+        XCTAssertTrue(app.tabBars.buttons["策略"].exists)
+        XCTAssertTrue(app.tabBars.buttons["统计"].exists)
     }
 
     @MainActor
     func testLaunchPerformance() throws {
         // This measures how long it takes to launch your application.
         measure(metrics: [XCTApplicationLaunchMetric()]) {
-            XCUIApplication().launch()
+            let app = XCUIApplication()
+            app.launchArguments = ["-UITestSkipOnboarding", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
+            app.launch()
         }
     }
 }

@@ -33,6 +33,7 @@ struct AnalyticsServiceTests {
             PersonalLendingPlan.self,
             PersonalLendingPaymentRecord.self,
             PersonalLendingAllocationDetail.self,
+            PersonalLendingOverdueRecord.self,
             StrategyComparisonBatch.self,
             StrategySimulation.self,
             StrategyMonthSnapshot.self,
@@ -131,6 +132,66 @@ struct AnalyticsServiceTests {
         #expect(analytics.fixedDebtAmount == 1050)
         #expect(analytics.revolvingDebtAmount == 400)
         #expect(analytics.maxSingleDebt?.debtType == .loan)
+    }
+
+    @Test
+    func debtAnalyticsExcludesArchivedAndInactiveDebts() {
+        let period = AnalyticsSupport.monthPeriod(containing: date(2026, 5, 16))
+        let activeCard = CreditCardDebt(name: "Active Card", billingDay: 1, dueDay: 20)
+        let archivedCard = CreditCardDebt(name: "Archived Card", billingDay: 1, dueDay: 20, status: .archived, isActive: false)
+        let activeStatement = CreditCardStatement(
+            debtID: activeCard.id,
+            billingDate: date(2026, 5, 1),
+            dueDate: date(2026, 5, 20),
+            statementAmount: 500,
+            minimumPaymentAmount: 50,
+            minimumPaymentSource: "userProvided",
+            source: .userConfirmed
+        )
+        let archivedStatement = CreditCardStatement(
+            debtID: archivedCard.id,
+            billingDate: date(2026, 5, 1),
+            dueDate: date(2026, 5, 20),
+            statementAmount: 900,
+            minimumPaymentAmount: 90,
+            minimumPaymentSource: "userProvided",
+            source: .userConfirmed
+        )
+        let archivedLoan = LoanDebt(
+            name: "Archived Loan",
+            repaymentMethod: .equalPrincipal,
+            originalPrincipal: 1000,
+            annualInterestRate: 0,
+            startDate: date(2026, 1, 1),
+            endDate: date(2026, 5, 20),
+            repaymentDay: 20,
+            termCount: 1,
+            status: .archived
+        )
+        let archivedPersonal = PersonalLendingDebt(
+            name: "Archived Friend",
+            principalAmount: 300,
+            borrowedDate: date(2026, 1, 1),
+            repaymentMethod: .noFixedPlan,
+            status: .archived,
+            isArchived: true
+        )
+
+        let analytics = DebtAnalyticsService().generate(
+            creditCardDebts: [activeCard, archivedCard],
+            creditCardStatements: [activeStatement, archivedStatement],
+            loanDebts: [archivedLoan],
+            loanPlans: [],
+            personalLendingDebts: [archivedPersonal],
+            personalLendingPlans: [],
+            period: period
+        )
+
+        #expect(analytics.totalRemainingAmount == 500)
+        #expect(analytics.totalDebtCount == 1)
+        #expect(analytics.creditCardRemainingAmount == 500)
+        #expect(analytics.loanRemainingAmount == 0)
+        #expect(analytics.personalLendingRemainingAmount == 0)
     }
 
     @Test

@@ -15,6 +15,9 @@ enum DebtServiceError: Error, Equatable {
 struct CreditCardDebtInput: Equatable {
     var name: String
     var bankName: String
+    var lastFourDigits: String
+    var creditLimit: Decimal?
+    var note: String
     var billingDay: Int
     var dueDay: Int
     var currencyCode: String
@@ -22,12 +25,18 @@ struct CreditCardDebtInput: Equatable {
     init(
         name: String,
         bankName: String = "",
+        lastFourDigits: String = "",
+        creditLimit: Decimal? = nil,
+        note: String = "",
         billingDay: Int,
         dueDay: Int,
         currencyCode: String = Locale.current.currency?.identifier ?? "USD"
     ) {
         self.name = name
         self.bankName = bankName
+        self.lastFourDigits = lastFourDigits
+        self.creditLimit = creditLimit
+        self.note = note
         self.billingDay = billingDay
         self.dueDay = dueDay
         self.currencyCode = currencyCode
@@ -59,11 +68,29 @@ struct CreditCardManualOverdueInput: Equatable {
     var penaltyInterest: Decimal
     var startDate: Date
     var endDate: Date?
+    var note: String
+
+    init(
+        overdueAmount: Decimal,
+        overdueFee: Decimal,
+        penaltyInterest: Decimal,
+        startDate: Date,
+        endDate: Date? = nil,
+        note: String = ""
+    ) {
+        self.overdueAmount = overdueAmount
+        self.overdueFee = overdueFee
+        self.penaltyInterest = penaltyInterest
+        self.startDate = startDate
+        self.endDate = endDate
+        self.note = note
+    }
 }
 
 struct LoanDebtInput: Equatable {
     var name: String
     var creditorName: String
+    var note: String
     var entryMode: LoanEntryMode
     var repaymentMethod: LoanRepaymentMethod
     var originalPrincipal: Decimal
@@ -75,6 +102,38 @@ struct LoanDebtInput: Equatable {
     var repaymentDay: Int
     var termCount: Int
     var currencyCode: String
+
+    init(
+        name: String,
+        creditorName: String = "",
+        note: String = "",
+        entryMode: LoanEntryMode,
+        repaymentMethod: LoanRepaymentMethod,
+        originalPrincipal: Decimal,
+        openingPrincipalForManagement: Decimal? = nil,
+        annualInterestRate: Decimal,
+        startDate: Date,
+        managementStartDate: Date? = nil,
+        endDate: Date,
+        repaymentDay: Int,
+        termCount: Int,
+        currencyCode: String = Locale.current.currency?.identifier ?? "USD"
+    ) {
+        self.name = name
+        self.creditorName = creditorName
+        self.note = note
+        self.entryMode = entryMode
+        self.repaymentMethod = repaymentMethod
+        self.originalPrincipal = originalPrincipal
+        self.openingPrincipalForManagement = openingPrincipalForManagement
+        self.annualInterestRate = annualInterestRate
+        self.startDate = startDate
+        self.managementStartDate = managementStartDate
+        self.endDate = endDate
+        self.repaymentDay = repaymentDay
+        self.termCount = termCount
+        self.currencyCode = currencyCode
+    }
 }
 
 struct LoanPaymentInput: Equatable {
@@ -145,6 +204,53 @@ struct PersonalLendingPaymentInput: Equatable {
     init(paymentDate: Date, amount: Decimal, note: String = "") {
         self.paymentDate = paymentDate
         self.amount = amount
+        self.note = note
+    }
+}
+
+struct LoanManualOverdueInput: Equatable {
+    var overdueFee: Decimal
+    var penaltyInterest: Decimal
+    var startDate: Date
+    var endDate: Date?
+    var note: String
+
+    init(
+        overdueFee: Decimal,
+        penaltyInterest: Decimal,
+        startDate: Date,
+        endDate: Date? = nil,
+        note: String = ""
+    ) {
+        self.overdueFee = overdueFee
+        self.penaltyInterest = penaltyInterest
+        self.startDate = startDate
+        self.endDate = endDate
+        self.note = note
+    }
+}
+
+struct PersonalLendingManualOverdueInput: Equatable {
+    var overdueAmount: Decimal
+    var overdueFee: Decimal
+    var penaltyInterest: Decimal
+    var startDate: Date
+    var endDate: Date?
+    var note: String
+
+    init(
+        overdueAmount: Decimal,
+        overdueFee: Decimal = 0,
+        penaltyInterest: Decimal = 0,
+        startDate: Date,
+        endDate: Date? = nil,
+        note: String = ""
+    ) {
+        self.overdueAmount = overdueAmount
+        self.overdueFee = overdueFee
+        self.penaltyInterest = penaltyInterest
+        self.startDate = startDate
+        self.endDate = endDate
         self.note = note
     }
 }

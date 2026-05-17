@@ -14,18 +14,18 @@ enum SubscriptionCatalog {
     static let fallbackOptions: [SubscriptionProductOption] = [
         SubscriptionProductOption(
             id: monthlyProductID,
-            title: "Monthly Premium",
-            durationText: "1 month",
+            title: String(localized: "subscription.monthly.title", defaultValue: "Monthly Premium"),
+            durationText: String(localized: "subscription.monthly.duration", defaultValue: "1 month"),
             priceText: "$1.99/month",
-            calloutText: "Auto-renews monthly",
+            calloutText: String(localized: "subscription.monthly.callout", defaultValue: "Auto-renews monthly"),
             isFallbackPrice: true
         ),
         SubscriptionProductOption(
             id: yearlyProductID,
-            title: "Yearly Premium",
-            durationText: "1 year",
+            title: String(localized: "subscription.yearly.title", defaultValue: "Yearly Premium"),
+            durationText: String(localized: "subscription.yearly.duration", defaultValue: "1 year"),
             priceText: "$17.99/year",
-            calloutText: "Auto-renews yearly",
+            calloutText: String(localized: "subscription.yearly.callout", defaultValue: "Auto-renews yearly"),
             isFallbackPrice: true
         )
     ]
@@ -78,10 +78,13 @@ struct SubscriptionProductOption: Identifiable, Equatable {
 
         self.init(
             id: product.id,
-            title: product.displayName.isEmpty ? (fallback?.title ?? "Premium") : product.displayName,
+            title: product.displayName.isEmpty ? (fallback?.title ?? String(localized: "subscription.premium", defaultValue: "Premium")) : product.displayName,
             durationText: durationText,
             priceText: "\(product.displayPrice)/\(durationText.priceSuffix)",
-            calloutText: "Auto-renews every \(durationText)",
+            calloutText: String.localizedStringWithFormat(
+                String(localized: "subscription.autoRenewsEvery", defaultValue: "Auto-renews every %@"),
+                durationText
+            ),
             isFallbackPrice: false
         )
     }
@@ -92,18 +95,19 @@ extension Product.SubscriptionPeriod {
         let unitText: String
         switch unit {
         case .day:
-            unitText = value == 1 ? "day" : "days"
+            unitText = value == 1 ? String(localized: "duration.day.one", defaultValue: "day") : String(localized: "duration.day.many", defaultValue: "days")
         case .week:
-            unitText = value == 1 ? "week" : "weeks"
+            unitText = value == 1 ? String(localized: "duration.week.one", defaultValue: "week") : String(localized: "duration.week.many", defaultValue: "weeks")
         case .month:
-            unitText = value == 1 ? "month" : "months"
+            unitText = value == 1 ? String(localized: "duration.month.one", defaultValue: "month") : String(localized: "duration.month.many", defaultValue: "months")
         case .year:
-            unitText = value == 1 ? "year" : "years"
+            unitText = value == 1 ? String(localized: "duration.year.one", defaultValue: "year") : String(localized: "duration.year.many", defaultValue: "years")
         @unknown default:
-            unitText = "period"
+            unitText = String(localized: "duration.period", defaultValue: "period")
         }
 
-        return value == 1 ? "1 \(unitText)" : "\(value) \(unitText)"
+        let format = String(localized: "duration.value", defaultValue: "%d %@")
+        return String.localizedStringWithFormat(format, value, unitText)
     }
 }
 

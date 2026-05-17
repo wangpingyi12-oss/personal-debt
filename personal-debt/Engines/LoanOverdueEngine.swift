@@ -30,6 +30,7 @@ struct LoanOverdueEngine {
         if let existingRecord {
             guard !existingRecord.isUserManaged else { return existingRecord }
             existingRecord.overdueDays = days
+            existingRecord.overdueBaseAmount = base
             existingRecord.overdueFee = feeResult.amount
             existingRecord.penaltyInterest = penaltyResult.amount
             existingRecord.generatesOverdueFee = feeResult.isGenerated
@@ -52,6 +53,7 @@ struct LoanOverdueEngine {
             planID: plan.id,
             overdueStartDate: plan.dueDate,
             overdueDays: days,
+            overdueBaseAmount: base,
             overdueFee: feeResult.amount,
             penaltyInterest: penaltyResult.amount,
             generatesOverdueFee: feeResult.isGenerated,

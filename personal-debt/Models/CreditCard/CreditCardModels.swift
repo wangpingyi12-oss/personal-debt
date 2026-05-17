@@ -6,6 +6,9 @@ final class CreditCardDebt {
     var id: UUID
     var name: String
     var bankName: String
+    var lastFourDigits: String
+    var creditLimit: Decimal?
+    var note: String
     var billingDay: Int
     var dueDay: Int
     var currencyCode: String
@@ -23,6 +26,9 @@ final class CreditCardDebt {
         id: UUID = UUID(),
         name: String,
         bankName: String = "",
+        lastFourDigits: String = "",
+        creditLimit: Decimal? = nil,
+        note: String = "",
         billingDay: Int,
         dueDay: Int,
         currencyCode: String = Locale.current.currency?.identifier ?? "USD",
@@ -34,6 +40,9 @@ final class CreditCardDebt {
         self.id = id
         self.name = name
         self.bankName = bankName
+        self.lastFourDigits = lastFourDigits
+        self.creditLimit = creditLimit
+        self.note = note
         self.billingDay = billingDay
         self.dueDay = dueDay
         self.currencyCode = currencyCode
@@ -308,9 +317,11 @@ final class CreditCardOverdueRecord {
     var source: String
     var isUserManaged: Bool
     var isActive: Bool
+    var note: String
     var systemCalculatedOverdueAmount: Decimal
     var systemCalculatedOverdueFee: Decimal
     var systemCalculatedPenaltyInterest: Decimal
+    var updatedAt: Date
 
     var status: CreditCardOverdueRecordStatus {
         get { .value(from: statusRawValue, default: .active) }
@@ -335,9 +346,11 @@ final class CreditCardOverdueRecord {
         source: CreditCardOverdueRecordSource = .systemGenerated,
         isUserManaged: Bool = false,
         isActive: Bool = true,
+        note: String = "",
         systemCalculatedOverdueAmount: Decimal = 0,
         systemCalculatedOverdueFee: Decimal = 0,
-        systemCalculatedPenaltyInterest: Decimal = 0
+        systemCalculatedPenaltyInterest: Decimal = 0,
+        updatedAt: Date = Date()
     ) {
         self.id = id
         self.debtID = debtID
@@ -351,9 +364,11 @@ final class CreditCardOverdueRecord {
         self.source = source.rawValue
         self.isUserManaged = isUserManaged
         self.isActive = isActive
+        self.note = note
         self.systemCalculatedOverdueAmount = systemCalculatedOverdueAmount
         self.systemCalculatedOverdueFee = systemCalculatedOverdueFee
         self.systemCalculatedPenaltyInterest = systemCalculatedPenaltyInterest
+        self.updatedAt = updatedAt
     }
 }
 

@@ -144,6 +144,145 @@ final class PersonalLendingDebtService {
         }
     }
 
+    func refreshOverdues(
+        debt: PersonalLendingDebt,
+        plans: [PersonalLendingPlan],
+        overdues: inout [PersonalLendingOverdueRecord],
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            if plans.isEmpty {
+                try refreshDebtLevelOverdue(debt: debt, overdues: &overdues, today: today)
+            } else {
+                for plan in plans {
+                    try refreshPlanOverdue(debt: debt, plan: plan, overdues: &overdues, today: today)
+                }
+            }
+            recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
+    func createManualOverdue(
+        debt: PersonalLendingDebt,
+        plan: PersonalLendingPlan?,
+        existingOverdues: inout [PersonalLendingOverdueRecord],
+        input: PersonalLendingManualOverdueInput,
+        today: Date = Date()
+    ) throws -> (DebtServiceResult, PersonalLendingOverdueRecord) {
+        try perform {
+            let targetPlanID = plan?.id
+            if existingOverdues.contains(where: { $0.debtID == debt.id && $0.planID == targetPlanID && $0.status == .active }) {
+                throw DebtServiceError.validationFailed(String(localized: "error.overdueAlreadyExists", defaultValue: "An active overdue record already exists for this item."))
+            }
+            let dueDate = plan?.dueDate ?? debt.agreedEndDate ?? input.startDate
+            try validateManualOverdueInput(input, dueDate: dueDate, today: today)
+            let record = PersonalLendingOverdueRecord(
+                debtID: debt.id,
+                planID: targetPlanID,
+                source: .userCreated,
+                status: input.endDate == nil ? .active : .resolved,
+                isUserManaged: true,
+                overdueStartDate: input.startDate,
+                overdueEndDate: input.endDate,
+                overdueDays: overdueDays(from: input.startDate, to: input.endDate ?? today),
+                overdueAmount: input.overdueAmount,
+                overdueFee: input.overdueFee,
+                penaltyInterest: input.penaltyInterest,
+                note: input.note,
+                createdAt: today,
+                updatedAt: today
+            )
+            existingOverdues.append(record)
+            insert(record)
+            if record.status == .active {
+                plan?.status = .overdue
+                debt.status = .overdue
+            }
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return (.created, record)
+        }
+    }
+
+    func updateManualOverdue(
+        _ overdue: PersonalLendingOverdueRecord,
+        debt: PersonalLendingDebt,
+        plan: PersonalLendingPlan?,
+        plans: [PersonalLendingPlan],
+        overdues: [PersonalLendingOverdueRecord],
+        input: PersonalLendingManualOverdueInput,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            guard overdue.isUserManaged else {
+                throw DebtServiceError.validationFailed(String(localized: "error.onlyUserOverdueCanBeEdited", defaultValue: "Only user-managed overdue records can be edited."))
+            }
+            let dueDate = plan?.dueDate ?? debt.agreedEndDate ?? input.startDate
+            try validateManualOverdueInput(input, dueDate: dueDate, today: today)
+            overdue.source = .userAdjusted
+            overdue.status = input.endDate == nil ? .active : .resolved
+            overdue.overdueStartDate = input.startDate
+            overdue.overdueEndDate = input.endDate
+            overdue.overdueDays = overdueDays(from: input.startDate, to: input.endDate ?? today)
+            overdue.overdueAmount = input.overdueAmount
+            overdue.overdueFee = input.overdueFee
+            overdue.penaltyInterest = input.penaltyInterest
+            overdue.note = input.note
+            overdue.updatedAt = today
+            if overdue.status == .active {
+                plan?.status = .overdue
+                debt.status = .overdue
+            } else {
+                recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            }
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
+    func resolveOverdue(
+        _ overdue: PersonalLendingOverdueRecord,
+        debt: PersonalLendingDebt,
+        plan: PersonalLendingPlan?,
+        plans: [PersonalLendingPlan],
+        overdues: [PersonalLendingOverdueRecord],
+        endDate: Date,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            guard endDate >= overdue.overdueStartDate else {
+                throw DebtServiceError.validationFailed(String(localized: "error.overdueStartAfterEnd", defaultValue: "Overdue start date must not be later than end date."))
+            }
+            overdue.status = .resolved
+            overdue.overdueEndDate = endDate
+            overdue.overdueDays = overdueDays(from: overdue.overdueStartDate, to: endDate)
+            overdue.updatedAt = today
+            recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
+    func voidOverdue(
+        _ overdue: PersonalLendingOverdueRecord,
+        debt: PersonalLendingDebt,
+        plan: PersonalLendingPlan?,
+        plans: [PersonalLendingPlan],
+        overdues: [PersonalLendingOverdueRecord],
+        status: PersonalLendingOverdueRecordStatus = .voided,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            overdue.status = status
+            overdue.overdueEndDate = overdue.overdueEndDate ?? today
+            overdue.updatedAt = today
+            recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
     func updateCoreFields(
         debt: PersonalLendingDebt,
         input: PersonalLendingDebtInput,
@@ -192,6 +331,25 @@ final class PersonalLendingDebtService {
         }
     }
 
+    func softDeleteDebt(
+        _ debt: PersonalLendingDebt,
+        overdues: [PersonalLendingOverdueRecord],
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            debt.isArchived = true
+            debt.status = .archived
+            debt.updatedAt = today
+            for overdue in overdues where overdue.debtID == debt.id {
+                overdue.status = .voided
+                overdue.overdueEndDate = overdue.overdueEndDate ?? today
+                overdue.updatedAt = today
+            }
+            try markAnalyticsDirty(.all)
+            return .recalculated
+        }
+    }
+
     private func rebuildPayments(
         debt: PersonalLendingDebt,
         plans: [PersonalLendingPlan],
@@ -205,6 +363,153 @@ final class PersonalLendingDebtService {
         let newDetails = try paymentEngine.rebuildPayments(debt: debt, plans: plans, payments: payments, today: today)
         allocationDetails = newDetails
         newDetails.forEach(insert)
+    }
+
+    private func refreshPlanOverdue(
+        debt: PersonalLendingDebt,
+        plan: PersonalLendingPlan,
+        overdues: inout [PersonalLendingOverdueRecord],
+        today: Date
+    ) throws {
+        if overdues.contains(where: { $0.planID == plan.id && $0.status == .ignored }) {
+            return
+        }
+        let isPastDue = today > plan.dueDate && plan.remainingAmount > 0
+        let existingIndex = overdues.firstIndex { $0.planID == plan.id && $0.status == .active }
+
+        guard isPastDue else {
+            if let existingIndex, overdues[existingIndex].isUserManaged == false {
+                overdues[existingIndex].status = .resolved
+                overdues[existingIndex].overdueEndDate = today
+                overdues[existingIndex].updatedAt = today
+            }
+            if plan.status == .overdue {
+                plan.status = plan.remainingAmount == 0 ? .paid : (plan.paidAmount > 0 ? .partiallyPaid : .pending)
+            }
+            return
+        }
+
+        let days = overdueDays(from: plan.dueDate, to: today)
+        if let existingIndex {
+            let existing = overdues[existingIndex]
+            guard existing.isUserManaged == false else { return }
+            existing.overdueDays = days
+            existing.overdueAmount = plan.remainingAmount
+            existing.status = .active
+            existing.updatedAt = today
+        } else {
+            let record = PersonalLendingOverdueRecord(
+                debtID: debt.id,
+                planID: plan.id,
+                overdueStartDate: plan.dueDate,
+                overdueDays: days,
+                overdueAmount: plan.remainingAmount,
+                updatedAt: today
+            )
+            overdues.append(record)
+            insert(record)
+        }
+        plan.status = .overdue
+    }
+
+    private func refreshDebtLevelOverdue(
+        debt: PersonalLendingDebt,
+        overdues: inout [PersonalLendingOverdueRecord],
+        today: Date
+    ) throws {
+        guard let agreedEndDate = debt.agreedEndDate else { return }
+        if overdues.contains(where: { $0.debtID == debt.id && $0.planID == nil && $0.status == .ignored }) {
+            return
+        }
+        let isPastDue = today > agreedEndDate && debt.remainingAmount > 0
+        let existingIndex = overdues.firstIndex { $0.debtID == debt.id && $0.planID == nil && $0.status == .active }
+
+        guard isPastDue else {
+            if let existingIndex, overdues[existingIndex].isUserManaged == false {
+                overdues[existingIndex].status = .resolved
+                overdues[existingIndex].overdueEndDate = today
+                overdues[existingIndex].updatedAt = today
+            }
+            return
+        }
+
+        let days = overdueDays(from: agreedEndDate, to: today)
+        if let existingIndex {
+            let existing = overdues[existingIndex]
+            guard existing.isUserManaged == false else { return }
+            existing.overdueDays = days
+            existing.overdueAmount = debt.remainingAmount
+            existing.status = .active
+            existing.updatedAt = today
+        } else {
+            let record = PersonalLendingOverdueRecord(
+                debtID: debt.id,
+                overdueStartDate: agreedEndDate,
+                overdueDays: days,
+                overdueAmount: debt.remainingAmount,
+                updatedAt: today
+            )
+            overdues.append(record)
+            insert(record)
+        }
+    }
+
+    private func recalculateDebtStatus(
+        debt: PersonalLendingDebt,
+        plans: [PersonalLendingPlan],
+        overdues: [PersonalLendingOverdueRecord],
+        today: Date
+    ) {
+        if overdues.contains(where: { $0.debtID == debt.id && $0.status == .active }) {
+            debt.status = .overdue
+        } else if debt.remainingAmount == 0 {
+            debt.status = .paidOff
+        } else if debt.paidAmount > 0 {
+            debt.status = .partiallyPaid
+        } else {
+            debt.status = .active
+        }
+
+        for plan in plans where plan.status == .overdue {
+            if plan.remainingAmount == 0 {
+                plan.status = .paid
+            } else if plan.paidAmount > 0 && !overdues.contains(where: { $0.planID == plan.id && $0.status == .active }) {
+                plan.status = .partiallyPaid
+            } else if !overdues.contains(where: { $0.planID == plan.id && $0.status == .active }) {
+                plan.status = .pending
+            }
+        }
+        paymentEngine.updatePastDueStatistics(debt: debt, plans: plans, today: today)
+        debt.updatedAt = today
+    }
+
+    private func validateManualOverdueInput(
+        _ input: PersonalLendingManualOverdueInput,
+        dueDate: Date,
+        today: Date
+    ) throws {
+        try validateNonNegative(input.overdueAmount, field: "overdueAmount")
+        try validateNonNegative(input.overdueFee, field: "overdueFee")
+        try validateNonNegative(input.penaltyInterest, field: "penaltyInterest")
+        guard input.startDate <= today else {
+            throw DebtServiceError.validationFailed(String(localized: "error.overdueStartInFuture", defaultValue: "Overdue start date must not be later than today."))
+        }
+        guard input.startDate >= dueDate else {
+            throw DebtServiceError.validationFailed(String(localized: "error.overdueStartBeforeDueDate", defaultValue: "Overdue start date must not be earlier than the due date."))
+        }
+        if let endDate = input.endDate, endDate < input.startDate {
+            throw DebtServiceError.validationFailed(String(localized: "error.overdueStartAfterEnd", defaultValue: "Overdue start date must not be later than end date."))
+        }
+    }
+
+    private func validateNonNegative(_ amount: Decimal, field: String) throws {
+        guard amount >= 0 else {
+            throw DebtServiceError.validationFailed("\(field) must not be negative.")
+        }
+    }
+
+    private func overdueDays(from startDate: Date, to endDate: Date) -> Int {
+        max(Calendar(identifier: .gregorian).dateComponents([.day], from: startDate, to: endDate).day ?? 0, 0)
     }
 
     private func validatePaymentInput(_ input: PersonalLendingPaymentInput) throws {

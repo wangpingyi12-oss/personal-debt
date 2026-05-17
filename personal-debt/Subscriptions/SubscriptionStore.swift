@@ -67,7 +67,7 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
             products = SubscriptionCatalog.resolvedOptions(from: loadedOptions)
         } catch {
             products = SubscriptionCatalog.fallbackOptions
-            productLoadingError = "App Store prices could not be loaded. Fallback prices are shown until the store responds."
+            productLoadingError = String(localized: "subscription.error.productsUnavailable", defaultValue: "App Store prices could not be loaded. Fallback prices are shown until the store responds.")
         }
     }
 
@@ -78,8 +78,8 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
 
         guard let product = storeProducts[option.id] else {
             message = SubscriptionMessage(
-                title: "Purchase unavailable",
-                detail: "This subscription is not available from the App Store right now. Please try again later."
+                title: String(localized: "subscription.purchaseUnavailable.title", defaultValue: "Purchase unavailable"),
+                detail: String(localized: "subscription.purchaseUnavailable.detail", defaultValue: "This subscription is not available from the App Store right now. Please try again later.")
             )
             return
         }
@@ -93,8 +93,8 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
             case .success(let verification):
                 guard case .verified(let transaction) = verification else {
                     message = SubscriptionMessage(
-                        title: "Purchase not verified",
-                        detail: "The App Store transaction could not be verified, so access was not unlocked."
+                        title: String(localized: "subscription.purchaseUnverified.title", defaultValue: "Purchase not verified"),
+                        detail: String(localized: "subscription.purchaseUnverified.detail", defaultValue: "The App Store transaction could not be verified, so access was not unlocked.")
                     )
                     return
                 }
@@ -102,28 +102,28 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
                 await transaction.finish()
                 await refreshEntitlements()
                 message = SubscriptionMessage(
-                    title: "Subscription active",
-                    detail: "Full access is now unlocked on this device."
+                    title: String(localized: "subscription.purchaseActive.title", defaultValue: "Subscription active"),
+                    detail: String(localized: "subscription.purchaseActive.detail", defaultValue: "Full access is now unlocked on this device.")
                 )
             case .pending:
                 message = SubscriptionMessage(
-                    title: "Purchase pending",
-                    detail: "The App Store is still processing this purchase. Access will update when it completes."
+                    title: String(localized: "subscription.purchasePending.title", defaultValue: "Purchase pending"),
+                    detail: String(localized: "subscription.purchasePending.detail", defaultValue: "The App Store is still processing this purchase. Access will update when it completes.")
                 )
             case .userCancelled:
                 message = SubscriptionMessage(
-                    title: "Purchase cancelled",
-                    detail: "No subscription was purchased."
+                    title: String(localized: "subscription.purchaseCancelled.title", defaultValue: "Purchase cancelled"),
+                    detail: String(localized: "subscription.purchaseCancelled.detail", defaultValue: "No subscription was purchased.")
                 )
             @unknown default:
                 message = SubscriptionMessage(
-                    title: "Purchase incomplete",
-                    detail: "The App Store returned an unknown purchase result."
+                    title: String(localized: "subscription.purchaseIncomplete.title", defaultValue: "Purchase incomplete"),
+                    detail: String(localized: "subscription.purchaseIncomplete.detail", defaultValue: "The App Store returned an unknown purchase result.")
                 )
             }
         } catch {
             message = SubscriptionMessage(
-                title: "Purchase failed",
+                title: String(localized: "subscription.purchaseFailed.title", defaultValue: "Purchase failed"),
                 detail: error.localizedDescription
             )
         }
@@ -139,18 +139,18 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
 
             if hasFullAccess, case .subscribed = accessState {
                 message = SubscriptionMessage(
-                    title: "Subscription restored",
-                    detail: "Your App Store subscription is active again in the app."
+                    title: String(localized: "subscription.restoreActive.title", defaultValue: "Subscription restored"),
+                    detail: String(localized: "subscription.restoreActive.detail", defaultValue: "Your App Store subscription is active again in the app.")
                 )
             } else {
                 message = SubscriptionMessage(
-                    title: "No subscription found",
-                    detail: "No active subscription was found for the current App Store account."
+                    title: String(localized: "subscription.restoreMissing.title", defaultValue: "No subscription found"),
+                    detail: String(localized: "subscription.restoreMissing.detail", defaultValue: "No active subscription was found for the current App Store account.")
                 )
             }
         } catch {
             message = SubscriptionMessage(
-                title: "Restore failed",
+                title: String(localized: "subscription.restoreFailed.title", defaultValue: "Restore failed"),
                 detail: error.localizedDescription
             )
         }

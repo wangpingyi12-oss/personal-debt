@@ -14,6 +14,7 @@ struct personal_debtApp: App {
 
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
+            AppUserSettings.self,
             CreditCardDebt.self,
             CreditCardCalculationRule.self,
             CreditCardStatement.self,
@@ -32,6 +33,7 @@ struct personal_debtApp: App {
             PersonalLendingPlan.self,
             PersonalLendingPaymentRecord.self,
             PersonalLendingAllocationDetail.self,
+            PersonalLendingOverdueRecord.self,
             StrategyComparisonBatch.self,
             StrategySimulation.self,
             StrategyMonthSnapshot.self,

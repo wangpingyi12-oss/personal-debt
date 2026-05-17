@@ -33,6 +33,7 @@ struct StrategySimulationTests {
             PersonalLendingPlan.self,
             PersonalLendingPaymentRecord.self,
             PersonalLendingAllocationDetail.self,
+            PersonalLendingOverdueRecord.self,
             StrategyComparisonBatch.self,
             StrategySimulation.self,
             StrategyMonthSnapshot.self,

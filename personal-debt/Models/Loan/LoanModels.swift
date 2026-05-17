@@ -6,6 +6,7 @@ final class LoanDebt {
     var id: UUID
     var name: String
     var creditorName: String
+    var note: String
     var entryModeRawValue: String
     var repaymentMethodRawValue: String
     var originalPrincipal: Decimal
@@ -42,6 +43,7 @@ final class LoanDebt {
         id: UUID = UUID(),
         name: String,
         creditorName: String = "",
+        note: String = "",
         entryMode: LoanEntryMode = .newLoan,
         repaymentMethod: LoanRepaymentMethod,
         originalPrincipal: Decimal,
@@ -63,6 +65,7 @@ final class LoanDebt {
         self.id = id
         self.name = name
         self.creditorName = creditorName
+        self.note = note
         self.entryModeRawValue = entryMode.rawValue
         self.repaymentMethodRawValue = repaymentMethod.rawValue
         self.originalPrincipal = originalPrincipal
@@ -241,13 +244,16 @@ final class LoanOverdueRecord {
     var statusRawValue: String
     var isUserManaged: Bool
     var overdueStartDate: Date
+    var overdueEndDate: Date?
     var overdueDays: Int
+    var overdueBaseAmount: Decimal
     var overdueFee: Decimal
     var penaltyInterest: Decimal
     var generatesOverdueFee: Bool
     var generatesPenaltyInterest: Bool
     var paidOverdueFee: Decimal
     var paidPenaltyInterest: Decimal
+    var note: String
     var createdAt: Date
     var updatedAt: Date
 
@@ -269,13 +275,16 @@ final class LoanOverdueRecord {
         status: LoanOverdueRecordStatus = .active,
         isUserManaged: Bool = false,
         overdueStartDate: Date,
+        overdueEndDate: Date? = nil,
         overdueDays: Int,
+        overdueBaseAmount: Decimal = 0,
         overdueFee: Decimal = 0,
         penaltyInterest: Decimal = 0,
         generatesOverdueFee: Bool = true,
         generatesPenaltyInterest: Bool = true,
         paidOverdueFee: Decimal = 0,
         paidPenaltyInterest: Decimal = 0,
+        note: String = "",
         createdAt: Date = Date(),
         updatedAt: Date = Date()
     ) {
@@ -286,13 +295,16 @@ final class LoanOverdueRecord {
         self.statusRawValue = status.rawValue
         self.isUserManaged = isUserManaged
         self.overdueStartDate = overdueStartDate
+        self.overdueEndDate = overdueEndDate
         self.overdueDays = overdueDays
+        self.overdueBaseAmount = overdueBaseAmount
         self.overdueFee = overdueFee
         self.penaltyInterest = penaltyInterest
         self.generatesOverdueFee = generatesOverdueFee
         self.generatesPenaltyInterest = generatesPenaltyInterest
         self.paidOverdueFee = paidOverdueFee
         self.paidPenaltyInterest = paidPenaltyInterest
+        self.note = note
         self.createdAt = createdAt
         self.updatedAt = updatedAt
     }

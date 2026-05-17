@@ -49,6 +49,7 @@ final class AnalyticsCoordinator {
         let personalLendingDebts = try modelContext.fetch(FetchDescriptor<PersonalLendingDebt>())
         let personalLendingPlans = try modelContext.fetch(FetchDescriptor<PersonalLendingPlan>())
         let personalLendingPayments = try modelContext.fetch(FetchDescriptor<PersonalLendingPaymentRecord>())
+        let personalLendingOverdues = try modelContext.fetch(FetchDescriptor<PersonalLendingOverdueRecord>())
 
         let debtAnalytics = debtAnalyticsService.generate(
             creditCardDebts: creditCardDebts,
@@ -77,6 +78,7 @@ final class AnalyticsCoordinator {
             loanOverdues: loanOverdues,
             personalLendingDebts: personalLendingDebts,
             personalLendingPlans: personalLendingPlans,
+            personalLendingOverdues: personalLendingOverdues,
             today: today
         )
         let costAnalytics = costAnalyticsService.generate(

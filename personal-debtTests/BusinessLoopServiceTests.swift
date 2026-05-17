@@ -724,4 +724,79 @@ struct BusinessLoopServiceTests {
         #expect(debt.status == .partiallyPaid)
         #expect(debt.status != .overdue)
     }
+
+    @Test
+    func personalLendingOverdueCrudCreatesResolvesAndIgnoresRecords() throws {
+        let service = PersonalLendingDebtService()
+        let input = PersonalLendingDebtInput(
+            name: "Friend",
+            lenderName: "Alex",
+            note: "",
+            principalAmount: 1000,
+            fixedInterestAmount: 0,
+            borrowedDate: date(2026, 1, 1),
+            agreedEndDate: date(2026, 1, 10),
+            repaymentMethod: .principalAndInterestAtMaturity,
+            isInterestBearing: false,
+            monthlyRepaymentDay: nil,
+            termCount: 0
+        )
+        let (_, debt, plans) = try service.createDebt(input)
+        var overdues: [PersonalLendingOverdueRecord] = []
+
+        _ = try service.refreshOverdues(
+            debt: debt,
+            plans: plans,
+            overdues: &overdues,
+            today: date(2026, 1, 20)
+        )
+
+        #expect(overdues.count == 1)
+        #expect(overdues[0].status == .active)
+        #expect(overdues[0].source == .systemGenerated)
+        #expect(plans[0].status == .overdue)
+        #expect(debt.status == .overdue)
+
+        _ = try service.resolveOverdue(
+            overdues[0],
+            debt: debt,
+            plan: plans[0],
+            plans: plans,
+            overdues: overdues,
+            endDate: date(2026, 1, 25),
+            today: date(2026, 1, 25)
+        )
+
+        #expect(overdues[0].status == .resolved)
+        #expect(overdues[0].overdueDays == 15)
+
+        _ = try service.createManualOverdue(
+            debt: debt,
+            plan: plans[0],
+            existingOverdues: &overdues,
+            input: PersonalLendingManualOverdueInput(
+                overdueAmount: 900,
+                overdueFee: 10,
+                penaltyInterest: 5,
+                startDate: date(2026, 1, 15),
+                note: "confirmed"
+            ),
+            today: date(2026, 1, 25)
+        )
+
+        #expect(overdues.count == 2)
+        #expect(overdues[1].source == .userCreated)
+        #expect(overdues[1].note == "confirmed")
+
+        _ = try service.voidOverdue(
+            overdues[1],
+            debt: debt,
+            plan: plans[0],
+            plans: plans,
+            overdues: overdues,
+            status: .ignored,
+            today: date(2026, 1, 25)
+        )
+        #expect(overdues[1].status == .ignored)
+    }
 }

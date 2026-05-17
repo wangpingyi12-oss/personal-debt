@@ -26,30 +26,34 @@ enum SubscriptionAccessState: Equatable {
     var statusTitle: String {
         switch self {
         case .loading:
-            return "Checking access"
+            return String(localized: "subscription.status.checking", defaultValue: "Checking access")
         case .trialActive:
-            return "Free trial active"
+            return String(localized: "subscription.status.trial", defaultValue: "Free trial active")
         case .subscribed:
-            return "Subscription active"
+            return String(localized: "subscription.status.active", defaultValue: "Subscription active")
         case .readOnly:
-            return "Read-only mode"
+            return String(localized: "subscription.status.readOnly", defaultValue: "Read-only mode")
         }
     }
 
     var statusDetail: String {
         switch self {
         case .loading:
-            return "Your subscription status is being refreshed."
+            return String(localized: "subscription.detail.checking", defaultValue: "Your subscription status is being refreshed.")
         case .trialActive(_, let daysRemaining):
-            return "\(daysRemaining) day\(daysRemaining == 1 ? "" : "s") remaining in your free trial."
+            let format = daysRemaining == 1
+                ? String(localized: "subscription.detail.trial.one", defaultValue: "%d day remaining in your free trial.")
+                : String(localized: "subscription.detail.trial.many", defaultValue: "%d days remaining in your free trial.")
+            return String.localizedStringWithFormat(format, daysRemaining)
         case .subscribed(_, let renewalDate):
             guard let renewalDate else {
-                return "Full access is unlocked by your App Store subscription."
+                return String(localized: "subscription.detail.activeNoDate", defaultValue: "Full access is unlocked by your App Store subscription.")
             }
 
-            return "Full access is unlocked until \(renewalDate.formatted(date: .abbreviated, time: .omitted))."
+            let format = String(localized: "subscription.detail.activeUntil", defaultValue: "Full access is unlocked until %@.")
+            return String.localizedStringWithFormat(format, renewalDate.formatted(date: .abbreviated, time: .omitted))
         case .readOnly:
-            return "Your free trial has ended. Existing data remains available to view."
+            return String(localized: "subscription.detail.readOnly", defaultValue: "Your free trial has ended. Existing data remains available to view.")
         }
     }
 }
@@ -95,7 +99,7 @@ enum SubscriptionAccessError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .readOnly:
-            return "A subscription is required to make changes after the free trial ends."
+            return String(localized: "subscription.error.readOnly", defaultValue: "A subscription is required to make changes after the free trial ends.")
         }
     }
 }

@@ -37,6 +37,9 @@ final class CreditCardDebtService {
             let debt = CreditCardDebt(
                 name: input.name,
                 bankName: input.bankName,
+                lastFourDigits: input.lastFourDigits,
+                creditLimit: input.creditLimit,
+                note: input.note,
                 billingDay: input.billingDay,
                 dueDay: input.dueDay,
                 currencyCode: input.currencyCode
@@ -46,6 +49,76 @@ final class CreditCardDebtService {
             insert(rule)
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return (.created, debt, rule)
+        }
+    }
+
+    func updateDebt(_ debt: CreditCardDebt, input: CreditCardDebtInput) throws -> DebtServiceResult {
+        try perform {
+            try validateDay(input.billingDay, field: "billingDay")
+            try validateDay(input.dueDay, field: "dueDay")
+            guard input.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+                throw DebtServiceError.validationFailed(String(localized: "error.creditCardNameRequired", defaultValue: "Credit card name is required."))
+            }
+            if let creditLimit = input.creditLimit {
+                try validateNonNegative(creditLimit, field: "creditLimit")
+            }
+
+            debt.name = input.name
+            debt.bankName = input.bankName
+            debt.lastFourDigits = input.lastFourDigits
+            debt.creditLimit = input.creditLimit
+            debt.note = input.note
+            debt.billingDay = input.billingDay
+            debt.dueDay = input.dueDay
+            debt.currencyCode = input.currencyCode
+            debt.updatedAt = Date()
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
+    func softDeleteDebt(
+        _ debt: CreditCardDebt,
+        statements: [CreditCardStatement],
+        plans: [CreditCardRepaymentPlan],
+        breakdowns: [CreditCardStatementBreakdown],
+        payments: [CreditCardPaymentRecord],
+        overdues: [CreditCardOverdueRecord],
+        installments: [CreditCardInstallmentPlan],
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            debt.isActive = false
+            debt.status = .archived
+            debt.updatedAt = today
+
+            for statement in statements where statement.debtID == debt.id {
+                statement.isActive = false
+                statement.status = .replaced
+                statement.updatedAt = today
+            }
+            for plan in plans where plan.debtID == debt.id {
+                plan.isActive = false
+            }
+            let statementIDs = Set(statements.filter { $0.debtID == debt.id }.map(\.id))
+            for breakdown in breakdowns where statementIDs.contains(breakdown.statementID) {
+                breakdown.isActive = false
+            }
+            for payment in payments where payment.debtID == debt.id {
+                payment.isActive = false
+                payment.updatedAt = today
+            }
+            for overdue in overdues where overdue.debtID == debt.id {
+                overdue.status = .voided
+                overdue.isActive = false
+                overdue.endDate = overdue.endDate ?? today
+                overdue.updatedAt = today
+            }
+            for installment in installments where installment.debtID == debt.id {
+                installment.isActive = false
+            }
+            try markAnalyticsDirty(.all)
+            return .recalculated
         }
     }
 
@@ -128,6 +201,83 @@ final class CreditCardDebtService {
         }
     }
 
+    func updateUserConfirmedStatement(
+        _ statement: CreditCardStatement,
+        input: CreditCardStatementInput,
+        debt: CreditCardDebt,
+        plan: CreditCardRepaymentPlan?,
+        payments: [CreditCardPaymentRecord],
+        overdues: inout [CreditCardOverdueRecord],
+        rule: CreditCardCalculationRule,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            guard statement.source == .userConfirmed, statement.isActive else {
+                throw DebtServiceError.validationFailed(String(localized: "error.onlyRealStatementCanBeEdited", defaultValue: "Only active real statements can be edited."))
+            }
+            try validateNonNegative(input.statementAmount, field: "statementAmount")
+            if let minimumPaymentAmount = input.minimumPaymentAmount {
+                try validateNonNegative(minimumPaymentAmount, field: "minimumPaymentAmount")
+                if minimumPaymentAmount > input.statementAmount {
+                    throw DebtServiceError.validationFailed(String(localized: "error.minimumPaymentExceedsStatement", defaultValue: "Minimum payment must not exceed statement amount."))
+                }
+            }
+            try validateDateOrder(input.billingDate, input.dueDate, message: String(localized: "error.billingDateAfterDueDate", defaultValue: "Billing date must not be later than due date."))
+
+            statement.billingDate = input.billingDate
+            statement.dueDate = input.dueDate
+            statement.statementAmount = roundingPolicy.round(input.statementAmount)
+            statement.minimumPaymentAmount = billingEngine.minimumPaymentAmount(
+                statementAmount: input.statementAmount,
+                userInput: input.minimumPaymentAmount,
+                rule: rule
+            )
+            statement.minimumPaymentSource = input.minimumPaymentAmount == nil ? "fallbackRule" : "userProvided"
+            recalculateStatementAndOverdue(
+                debt: debt,
+                statement: statement,
+                plan: plan,
+                payments: payments,
+                overdues: &overdues,
+                rule: rule,
+                today: today
+            )
+            try markAnalyticsDirty(.all)
+            return .recalculated
+        }
+    }
+
+    func softDeleteStatement(
+        _ statement: CreditCardStatement,
+        debt: CreditCardDebt,
+        plan: CreditCardRepaymentPlan?,
+        payments: [CreditCardPaymentRecord],
+        overdues: inout [CreditCardOverdueRecord],
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            statement.isActive = false
+            statement.status = .replaced
+            statement.updatedAt = today
+            plan?.isActive = false
+
+            for payment in payments where payment.statementID == statement.id {
+                payment.isActive = false
+                payment.updatedAt = today
+            }
+            for overdue in overdues where overdue.statementID == statement.id {
+                overdue.status = .voided
+                overdue.isActive = false
+                overdue.endDate = overdue.endDate ?? today
+                overdue.updatedAt = today
+            }
+            debt.status = .active
+            debt.updatedAt = today
+            try markAnalyticsDirty(.all)
+            return .recalculated
+        }
+    }
+
     func recordPayment(
         debt: CreditCardDebt,
         statement: CreditCardStatement,
@@ -160,6 +310,30 @@ final class CreditCardDebtService {
             )
             try markAnalyticsDirty([.debt, .payment, .overdue])
             return (.recalculated, payment)
+        }
+    }
+
+    func refreshStatementOverdue(
+        debt: CreditCardDebt,
+        statement: CreditCardStatement,
+        plan: CreditCardRepaymentPlan?,
+        payments: [CreditCardPaymentRecord],
+        overdues: inout [CreditCardOverdueRecord],
+        rule: CreditCardCalculationRule,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            recalculateStatementAndOverdue(
+                debt: debt,
+                statement: statement,
+                plan: plan,
+                payments: payments,
+                overdues: &overdues,
+                rule: rule,
+                today: today
+            )
+            try markAnalyticsDirty([.debt, .overdue])
+            return .recalculated
         }
     }
 
@@ -236,7 +410,7 @@ final class CreditCardDebtService {
             guard latestRealStatementID(for: debt.id, in: allStatements) == statement.id else {
                 throw DebtServiceError.validationFailed("Manual credit card overdue records can only target the latest real statement.")
             }
-            if existingOverdues.contains(where: { $0.statementID == statement.id && $0.status != .voided }) {
+            if existingOverdues.contains(where: { $0.statementID == statement.id && $0.status == .active }) {
                 throw DebtServiceError.validationFailed("A non-voided overdue record already exists for this statement.")
             }
             try validateNonNegative(input.overdueAmount, field: "overdueAmount")
@@ -257,6 +431,7 @@ final class CreditCardDebtService {
                 endDate: input.endDate,
                 source: .userCreated,
                 isUserManaged: true,
+                note: input.note,
                 systemCalculatedOverdueAmount: statement.remainingAmount
             )
             existingOverdues.append(record)
@@ -266,6 +441,61 @@ final class CreditCardDebtService {
             debt.status = .overdue
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return (.created, record)
+        }
+    }
+
+    func updateManualOverdue(
+        _ overdue: CreditCardOverdueRecord,
+        input: CreditCardManualOverdueInput,
+        debt: CreditCardDebt,
+        statement: CreditCardStatement,
+        plan: CreditCardRepaymentPlan?,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            guard overdue.isUserManaged else {
+                throw DebtServiceError.validationFailed(String(localized: "error.onlyUserOverdueCanBeEdited", defaultValue: "Only user-managed overdue records can be edited."))
+            }
+            try validateNonNegative(input.overdueAmount, field: "overdueAmount")
+            try validateNonNegative(input.overdueFee, field: "overdueFee")
+            try validateNonNegative(input.penaltyInterest, field: "penaltyInterest")
+            try validateDateOrder(input.startDate, input.endDate ?? input.startDate, message: String(localized: "error.overdueStartAfterEnd", defaultValue: "Overdue start date must not be later than end date."))
+            guard input.startDate >= statement.dueDate else {
+                throw DebtServiceError.validationFailed(String(localized: "error.manualOverdueBeforeDueDate", defaultValue: "Manual overdue start date must not be earlier than the statement due date."))
+            }
+
+            overdue.overdueAmount = input.overdueAmount
+            overdue.overdueFee = input.overdueFee
+            overdue.penaltyInterest = input.penaltyInterest
+            overdue.startDate = input.startDate
+            overdue.endDate = input.endDate
+            overdue.note = input.note
+            overdue.recordSource = .userAdjusted
+            overdue.status = input.endDate == nil ? .active : .ended
+            overdue.isActive = overdue.status == .active
+            overdue.updatedAt = today
+            if overdue.status == .active {
+                statement.status = .overdue
+                plan?.status = .overdue
+                debt.status = .overdue
+            }
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
+    func voidOverdue(
+        _ overdue: CreditCardOverdueRecord,
+        status: CreditCardOverdueRecordStatus = .voided,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            overdue.status = status
+            overdue.isActive = false
+            overdue.endDate = overdue.endDate ?? today
+            overdue.updatedAt = today
+            try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
         }
     }
 
@@ -286,6 +516,7 @@ final class CreditCardDebtService {
             overdue.endDate = endDate
             overdue.status = .ended
             overdue.isActive = false
+            overdue.updatedAt = today
             billingEngine.recalculate(statement: statement, plan: plan, payments: payments, debt: debt, today: today)
             if statement.status == .overdue {
                 throw DebtServiceError.validationFailed("The statement is still below minimum payment after ending overdue.")
@@ -325,6 +556,7 @@ final class CreditCardDebtService {
                 overdues[existingIndex].status = .ended
                 overdues[existingIndex].isActive = false
                 overdues[existingIndex].endDate = today
+                overdues[existingIndex].updatedAt = today
             }
             return
         }
@@ -346,6 +578,7 @@ final class CreditCardDebtService {
             existing.systemCalculatedPenaltyInterest = penaltyInterest
             existing.status = .active
             existing.isActive = true
+            existing.updatedAt = today
             plan?.status = .overdue
             debt.status = .overdue
             return

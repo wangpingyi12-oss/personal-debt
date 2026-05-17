@@ -21,6 +21,7 @@ struct OverdueAnalyticsService {
         loanOverdues: [LoanOverdueRecord],
         personalLendingDebts: [PersonalLendingDebt],
         personalLendingPlans: [PersonalLendingPlan],
+        personalLendingOverdues: [PersonalLendingOverdueRecord] = [],
         today: Date
     ) -> OverdueAnalytics {
         let activeCreditCards = AnalyticsSupport.activeCreditCardDebts(creditCardDebts)
@@ -50,6 +51,7 @@ struct OverdueAnalyticsService {
         let personalItems = personalLendingOverdueItems(
             debts: activePersonalLending,
             plans: personalLendingPlans,
+            overdues: personalLendingOverdues,
             names: names.personalLending,
             today: today
         )
@@ -171,15 +173,28 @@ struct OverdueAnalyticsService {
     private func personalLendingOverdueItems(
         debts: [PersonalLendingDebt],
         plans: [PersonalLendingPlan],
+        overdues: [PersonalLendingOverdueRecord],
         names: [UUID: String],
         today: Date
     ) -> [AnalyticsOverdueItem] {
         let plansByDebt = Dictionary(grouping: plans, by: \.debtID)
+        let activeOverduesByPlan = Dictionary(
+            grouping: overdues.compactMap { overdue -> PersonalLendingOverdueRecord? in
+                guard overdue.status == .active, overdue.planID != nil else { return nil }
+                return overdue
+            },
+            by: { $0.planID ?? UUID() }
+        )
+        let activeDebtLevelOverdues = Dictionary(
+            grouping: overdues.filter { $0.status == .active && $0.planID == nil },
+            by: \.debtID
+        )
         var items: [AnalyticsOverdueItem] = []
 
         for debt in debts {
             if let debtPlans = plansByDebt[debt.id], debtPlans.isEmpty == false {
                 for plan in debtPlans where isPastDue(plan.dueDate, today: today) && plan.remainingAmount > 0 {
+                    let records = activeOverduesByPlan[plan.id] ?? []
                     items.append(
                         AnalyticsOverdueItem(
                             id: plan.id,
@@ -190,8 +205,8 @@ struct OverdueAnalyticsService {
                             overdueDays: overdueDays(since: plan.dueDate, today: today),
                             overdueAmount: round(plan.remainingAmount),
                             minimumPaymentGap: 0,
-                            overdueFeeAmount: 0,
-                            penaltyInterestAmount: 0
+                            overdueFeeAmount: round(records.reduce(Decimal(0)) { $0 + AnalyticsSupport.nonNegative($1.overdueFee) }),
+                            penaltyInterestAmount: round(records.reduce(Decimal(0)) { $0 + AnalyticsSupport.nonNegative($1.penaltyInterest) })
                         )
                     )
                 }
@@ -203,6 +218,7 @@ struct OverdueAnalyticsService {
                   debt.remainingAmount > 0 else {
                 continue
             }
+            let records = activeDebtLevelOverdues[debt.id] ?? []
 
             items.append(
                 AnalyticsOverdueItem(
@@ -214,8 +230,8 @@ struct OverdueAnalyticsService {
                     overdueDays: overdueDays(since: agreedEndDate, today: today),
                     overdueAmount: round(debt.remainingAmount),
                     minimumPaymentGap: 0,
-                    overdueFeeAmount: 0,
-                    penaltyInterestAmount: 0
+                    overdueFeeAmount: round(records.reduce(Decimal(0)) { $0 + AnalyticsSupport.nonNegative($1.overdueFee) }),
+                    penaltyInterestAmount: round(records.reduce(Decimal(0)) { $0 + AnalyticsSupport.nonNegative($1.penaltyInterest) })
                 )
             )
         }

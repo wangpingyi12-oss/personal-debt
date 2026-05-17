@@ -177,3 +177,66 @@ final class PersonalLendingAllocationDetail {
         self.createdAt = createdAt
     }
 }
+
+@Model
+final class PersonalLendingOverdueRecord {
+    var id: UUID
+    var debtID: UUID
+    var planID: UUID?
+    var sourceRawValue: String
+    var statusRawValue: String
+    var isUserManaged: Bool
+    var overdueStartDate: Date
+    var overdueEndDate: Date?
+    var overdueDays: Int
+    var overdueAmount: Decimal
+    var overdueFee: Decimal
+    var penaltyInterest: Decimal
+    var note: String
+    var createdAt: Date
+    var updatedAt: Date
+
+    var source: PersonalLendingOverdueRecordSource {
+        get { .value(from: sourceRawValue, default: .systemGenerated) }
+        set { sourceRawValue = newValue.rawValue }
+    }
+
+    var status: PersonalLendingOverdueRecordStatus {
+        get { .value(from: statusRawValue, default: .active) }
+        set { statusRawValue = newValue.rawValue }
+    }
+
+    init(
+        id: UUID = UUID(),
+        debtID: UUID,
+        planID: UUID? = nil,
+        source: PersonalLendingOverdueRecordSource = .systemGenerated,
+        status: PersonalLendingOverdueRecordStatus = .active,
+        isUserManaged: Bool = false,
+        overdueStartDate: Date,
+        overdueEndDate: Date? = nil,
+        overdueDays: Int,
+        overdueAmount: Decimal,
+        overdueFee: Decimal = 0,
+        penaltyInterest: Decimal = 0,
+        note: String = "",
+        createdAt: Date = Date(),
+        updatedAt: Date = Date()
+    ) {
+        self.id = id
+        self.debtID = debtID
+        self.planID = planID
+        self.sourceRawValue = source.rawValue
+        self.statusRawValue = status.rawValue
+        self.isUserManaged = isUserManaged
+        self.overdueStartDate = overdueStartDate
+        self.overdueEndDate = overdueEndDate
+        self.overdueDays = overdueDays
+        self.overdueAmount = overdueAmount
+        self.overdueFee = overdueFee
+        self.penaltyInterest = penaltyInterest
+        self.note = note
+        self.createdAt = createdAt
+        self.updatedAt = updatedAt
+    }
+}

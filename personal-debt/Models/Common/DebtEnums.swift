@@ -41,6 +41,7 @@ enum CreditCardStatementStatus: String, Codable, CaseIterable, Identifiable {
 enum CreditCardOverdueRecordStatus: String, Codable, CaseIterable, Identifiable {
     case active
     case ended
+    case ignored
     case replaced
     case voided
 
@@ -160,6 +161,8 @@ enum LoanOverdueRecordStatus: String, Codable, CaseIterable, Identifiable {
     case paid
     case waived
     case closed
+    case ignored
+    case voided
 
     var id: String { rawValue }
 }
@@ -176,6 +179,24 @@ enum PersonalLendingPlanStatus: String, Codable, CaseIterable, Identifiable {
     case pending
     case partiallyPaid
     case paid
+    case overdue
+
+    var id: String { rawValue }
+}
+
+enum PersonalLendingOverdueRecordSource: String, Codable, CaseIterable, Identifiable {
+    case systemGenerated
+    case userCreated
+    case userAdjusted
+
+    var id: String { rawValue }
+}
+
+enum PersonalLendingOverdueRecordStatus: String, Codable, CaseIterable, Identifiable {
+    case active
+    case resolved
+    case ignored
+    case voided
 
     var id: String { rawValue }
 }
