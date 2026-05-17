@@ -282,6 +282,7 @@ final class CreditCardDebtService {
             guard overdue.isUserManaged else {
                 throw DebtServiceError.validationFailed("Only user-managed credit card overdue records can be ended manually.")
             }
+            try validateDateOrder(overdue.startDate, endDate, message: "Manual overdue end date must not be earlier than the start date.")
             overdue.endDate = endDate
             overdue.status = .ended
             overdue.isActive = false

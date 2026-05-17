@@ -25,6 +25,7 @@ final class PersonalLendingDebtService {
 
     func createDebt(_ input: PersonalLendingDebtInput) throws -> (DebtServiceResult, PersonalLendingDebt, [PersonalLendingPlan]) {
         try perform {
+            try validateDebtInput(input)
             let debt = PersonalLendingDebt(
                 name: input.name,
                 lenderName: input.lenderName,
@@ -150,6 +151,7 @@ final class PersonalLendingDebtService {
         plans: inout [PersonalLendingPlan]
     ) throws -> (DebtServiceResult, [PersonalLendingPlan]) {
         try perform {
+            try validateDebtInput(input)
             guard existingPayments.isEmpty else {
                 throw DebtServiceError.validationFailed("Core personal lending fields are locked after payment records exist.")
             }
@@ -180,6 +182,7 @@ final class PersonalLendingDebtService {
         note: String
     ) throws -> DebtServiceResult {
         try perform {
+            try validateName(name)
             debt.name = name
             debt.lenderName = lenderName
             debt.note = note
@@ -207,6 +210,16 @@ final class PersonalLendingDebtService {
     private func validatePaymentInput(_ input: PersonalLendingPaymentInput) throws {
         guard input.amount > 0 else {
             throw DebtServiceError.validationFailed("Personal lending payment amount must be greater than 0.")
+        }
+    }
+
+    private func validateDebtInput(_ input: PersonalLendingDebtInput) throws {
+        try validateName(input.name)
+    }
+
+    private func validateName(_ name: String) throws {
+        guard name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
+            throw DebtServiceError.validationFailed("Personal lending name is required.")
         }
     }
 

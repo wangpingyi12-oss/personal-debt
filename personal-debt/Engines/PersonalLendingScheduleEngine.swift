@@ -78,6 +78,9 @@ struct PersonalLendingScheduleEngine {
     func validate(_ debt: PersonalLendingDebt) throws {
         guard debt.principalAmount > 0 else { throw PersonalLendingValidationError.principalMustBePositive }
         guard debt.fixedInterestAmount >= 0 else { throw PersonalLendingValidationError.fixedInterestMustNotBeNegative }
+        if let agreedEndDate = debt.agreedEndDate, agreedEndDate < debt.borrowedDate {
+            throw PersonalLendingValidationError.agreedEndDateBeforeBorrowedDate
+        }
 
         if debt.isInterestBearing && debt.fixedInterestAmount <= 0 {
             throw PersonalLendingValidationError.fixedInterestMustBePositive
@@ -89,11 +92,8 @@ struct PersonalLendingScheduleEngine {
                 throw PersonalLendingValidationError.noFixedPlanMustBeInterestFree
             }
         case .principalAndInterestAtMaturity:
-            guard let agreedEndDate = debt.agreedEndDate else {
+            guard debt.agreedEndDate != nil else {
                 throw PersonalLendingValidationError.agreedEndDateRequired
-            }
-            if agreedEndDate < debt.borrowedDate {
-                throw PersonalLendingValidationError.agreedEndDateBeforeBorrowedDate
             }
         case .equalPrincipalEqualInterest:
             if debt.isInterestBearing == false && debt.fixedInterestAmount != 0 {

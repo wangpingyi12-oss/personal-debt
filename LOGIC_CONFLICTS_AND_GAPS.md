@@ -35,6 +35,30 @@
    - Resolution: in-progress loans now reject `openingPrincipalForManagement > originalPrincipal` and `managementStartDate < startDate`.
    - Coverage: `BusinessLoopServiceTests.loanServiceRejectsInvalidInProgressBoundaries()` verifies both invalid boundaries.
 
+7. **Test targets deployment target did not match the app target** — `fixed`
+   - Area: `personal-debt.xcodeproj/project.pbxproj`
+   - Symptom: the app target used iOS 17.6, but project/test target settings still used iOS 26.5, preventing unit tests from running on an already booted iOS 26.4.1 simulator.
+   - Resolution: project, unit-test, and UI-test deployment targets now align on iOS 17.6.
+   - Coverage: `xcodebuild test` now runs successfully on the booted iPhone 17 simulator.
+
+8. **Personal lending names were not validated consistently** — `fixed`
+   - Area: `PersonalLendingDebtService`
+   - Symptom: personal lending create/core-update/display-update paths accepted blank debt names, unlike other debt services.
+   - Resolution: all personal lending write paths now reject empty or whitespace-only names before mutation.
+   - Coverage: `BusinessLoopServiceTests.personalLendingServiceRejectsInvalidIdentityAndDateBoundaries()` and `personalLendingServiceLocksCoreFieldsAfterPaymentButAllowsDisplayFields()` verify create and display-update rejection.
+
+9. **Personal lending agreed end date boundary was mode-dependent** — `fixed`
+   - Area: `PersonalLendingScheduleEngine.validate(...)`
+   - Symptom: `agreedEndDate < borrowedDate` was rejected for maturity repayment, but could pass through for other modes when an end date was present.
+   - Resolution: the borrowed/end date ordering rule is now enforced globally whenever `agreedEndDate` exists.
+   - Coverage: `BusinessLoopServiceTests.personalLendingServiceRejectsInvalidIdentityAndDateBoundaries()` verifies the no-fixed-plan boundary.
+
+10. **Manual credit-card overdue closure could end before it started** — `fixed`
+   - Area: `CreditCardDebtService.endManualOverdue(...)`
+   - Symptom: manual overdue creation validated date order, but manual closure did not reject an end date before the overdue start date.
+   - Resolution: manual overdue closure now validates `endDate >= startDate` before mutating the overdue record.
+   - Coverage: `BusinessLoopServiceTests.creditCardManualOverdueRejectsEndBeforeStart()` verifies rejection and state preservation.
+
 ## Deferred boundary
 
 1. **Personal lending past-due semantics differ from `DebtStatus.overdue` and may confuse upper layers** — `deferred`
@@ -47,4 +71,6 @@
 - Static conflict scan found no Git conflict markers. The remaining `fatalError` is the app startup guard for SwiftData `ModelContainer` creation failure.
 - `xcodebuild build -project personal-debt.xcodeproj -scheme personal-debt -destination generic/platform=iOS -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO` succeeded.
 - `xcodebuild build-for-testing -project personal-debt.xcodeproj -scheme personal-debt -destination generic/platform=iOS\ Simulator -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO` succeeded.
-- Runtime `xcodebuild test` execution is blocked by the local CoreSimulator/app-launch environment with `NSMachErrorDomain Code=-308`; no test assertion failure was observed before simulator launch failed.
+- `xcodebuild analyze -project personal-debt.xcodeproj -scheme personal-debt -destination generic/platform=iOS -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO` succeeded outside the sandbox after the sandboxed run hit SwiftData macro/Xcode service permission limits.
+- `xcodebuild test -project personal-debt.xcodeproj -scheme personal-debt -destination id=4DE60437-42BF-48FF-9762-42107574A864 -derivedDataPath DerivedData CODE_SIGNING_ALLOWED=NO -parallel-testing-enabled NO -maximum-concurrent-test-simulator-destinations 1` succeeded on the booted iPhone 17 simulator.
+- The passing simulator run executed 45 Swift Testing tests across 5 suites and 4 UI tests.

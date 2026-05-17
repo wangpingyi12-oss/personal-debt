@@ -317,6 +317,57 @@ struct BusinessLoopServiceTests {
     }
 
     @Test
+    func creditCardManualOverdueRejectsEndBeforeStart() throws {
+        let service = CreditCardDebtService()
+        let (_, debt, rule) = try service.createDebt(
+            CreditCardDebtInput(name: "Card", billingDay: 1, dueDay: 20)
+        )
+        let (_, statement, plan) = try service.createUserConfirmedStatement(
+            debt: debt,
+            input: CreditCardStatementInput(
+                billingDate: date(2026, 2, 1),
+                dueDate: date(2026, 2, 20),
+                statementAmount: 900,
+                minimumPaymentAmount: 90
+            ),
+            rule: rule,
+            fallbackStatements: [],
+            fallbackPlans: [],
+            fallbackBreakdowns: []
+        )
+        var overdues: [CreditCardOverdueRecord] = []
+        let (_, overdue) = try service.createManualOverdue(
+            debt: debt,
+            statement: statement,
+            plan: plan,
+            allStatements: [statement],
+            existingOverdues: &overdues,
+            input: CreditCardManualOverdueInput(
+                overdueAmount: 900,
+                overdueFee: 0,
+                penaltyInterest: 0,
+                startDate: date(2026, 2, 22),
+                endDate: nil
+            )
+        )
+
+        do {
+            _ = try service.endManualOverdue(
+                overdue,
+                debt: debt,
+                statement: statement,
+                plan: plan,
+                payments: [],
+                endDate: date(2026, 2, 21)
+            )
+            #expect(Bool(false))
+        } catch {
+            #expect(error is DebtServiceError)
+            #expect(overdue.endDate == nil)
+        }
+    }
+
+    @Test
     func loanServiceUsesPriorityRuleAndUpdatesOverdueClosure() throws {
         let service = LoanDebtService()
         let input = LoanDebtInput(
@@ -582,6 +633,61 @@ struct BusinessLoopServiceTests {
         _ = try service.updateDisplayFields(debt: debt, name: "Updated", lenderName: "Alex", note: "ok")
         #expect(debt.name == "Updated")
         #expect(debt.note == "ok")
+
+        do {
+            _ = try service.updateDisplayFields(debt: debt, name: "   ", lenderName: "Alex", note: "bad")
+            #expect(Bool(false))
+        } catch {
+            #expect(error is DebtServiceError)
+            #expect(debt.name == "Updated")
+        }
+    }
+
+    @Test
+    func personalLendingServiceRejectsInvalidIdentityAndDateBoundaries() throws {
+        let service = PersonalLendingDebtService()
+
+        do {
+            _ = try service.createDebt(
+                PersonalLendingDebtInput(
+                    name: " ",
+                    lenderName: "Alex",
+                    note: "",
+                    principalAmount: 500,
+                    fixedInterestAmount: 0,
+                    borrowedDate: date(2026, 1, 10),
+                    agreedEndDate: date(2026, 1, 20),
+                    repaymentMethod: .principalAndInterestAtMaturity,
+                    isInterestBearing: false,
+                    monthlyRepaymentDay: nil,
+                    termCount: 0
+                )
+            )
+            #expect(Bool(false))
+        } catch {
+            #expect(error is DebtServiceError)
+        }
+
+        do {
+            _ = try service.createDebt(
+                PersonalLendingDebtInput(
+                    name: "Open",
+                    lenderName: "Alex",
+                    note: "",
+                    principalAmount: 500,
+                    fixedInterestAmount: 0,
+                    borrowedDate: date(2026, 1, 10),
+                    agreedEndDate: date(2026, 1, 9),
+                    repaymentMethod: .noFixedPlan,
+                    isInterestBearing: false,
+                    monthlyRepaymentDay: nil,
+                    termCount: 0
+                )
+            )
+            #expect(Bool(false))
+        } catch {
+            #expect(error is PersonalLendingValidationError)
+        }
     }
 
     @Test
