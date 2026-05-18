@@ -14,18 +14,24 @@ enum SubscriptionCatalog {
     static let fallbackOptions: [SubscriptionProductOption] = [
         SubscriptionProductOption(
             id: monthlyProductID,
-            title: String(localized: "subscription.monthly.title", defaultValue: "Monthly Premium"),
+            title: String(localized: "subscription.premium", defaultValue: "Premium"),
             durationText: String(localized: "subscription.monthly.duration", defaultValue: "1 month"),
-            priceText: "$1.99/month",
-            calloutText: String(localized: "subscription.monthly.callout", defaultValue: "Auto-renews monthly"),
+            priceText: "$1.99",
+            calloutText: String.localizedStringWithFormat(
+                String(localized: "subscription.autoRenewsEvery", defaultValue: "Auto-renews every %@"),
+                String(localized: "subscription.monthly.duration", defaultValue: "1 month")
+            ),
             isFallbackPrice: true
         ),
         SubscriptionProductOption(
             id: yearlyProductID,
-            title: String(localized: "subscription.yearly.title", defaultValue: "Yearly Premium"),
+            title: String(localized: "subscription.premium", defaultValue: "Premium"),
             durationText: String(localized: "subscription.yearly.duration", defaultValue: "1 year"),
-            priceText: "$17.99/year",
-            calloutText: String(localized: "subscription.yearly.callout", defaultValue: "Auto-renews yearly"),
+            priceText: "$17.99",
+            calloutText: String.localizedStringWithFormat(
+                String(localized: "subscription.autoRenewsEvery", defaultValue: "Auto-renews every %@"),
+                String(localized: "subscription.yearly.duration", defaultValue: "1 year")
+            ),
             isFallbackPrice: true
         )
     ]
@@ -80,7 +86,7 @@ struct SubscriptionProductOption: Identifiable, Equatable {
             id: product.id,
             title: product.displayName.isEmpty ? (fallback?.title ?? String(localized: "subscription.premium", defaultValue: "Premium")) : product.displayName,
             durationText: durationText,
-            priceText: "\(product.displayPrice)/\(durationText.priceSuffix)",
+            priceText: product.displayPrice,
             calloutText: String.localizedStringWithFormat(
                 String(localized: "subscription.autoRenewsEvery", defaultValue: "Auto-renews every %@"),
                 durationText
@@ -108,27 +114,5 @@ extension Product.SubscriptionPeriod {
 
         let format = String(localized: "duration.value", defaultValue: "%d %@")
         return String.localizedStringWithFormat(format, value, unitText)
-    }
-}
-
-private extension String {
-    var priceSuffix: String {
-        if contains("month") {
-            return "month"
-        }
-
-        if contains("year") {
-            return "year"
-        }
-
-        if contains("week") {
-            return "week"
-        }
-
-        if contains("day") {
-            return "day"
-        }
-
-        return "period"
     }
 }

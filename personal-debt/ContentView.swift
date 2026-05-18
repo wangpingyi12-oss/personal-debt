@@ -34,17 +34,28 @@ struct ContentView: View {
 
     private func ensureSettings() {
         let shouldSkipOnboarding = ProcessInfo.processInfo.arguments.contains("-UITestSkipOnboarding")
+        #if DEBUG
+        if UITestDebtScenarioSeeder.resetDataOnlyIfRequested(modelContext: modelContext, onboardingCompleted: shouldSkipOnboarding) {
+            return
+        }
+        #endif
         if let existing = settings.first {
             if shouldSkipOnboarding, existing.onboardingCompleted == false {
                 existing.onboardingCompleted = true
                 existing.updatedAt = Date()
                 try? modelContext.save()
             }
+            #if DEBUG
+            UITestDebtScenarioSeeder.prepareIfRequested(modelContext: modelContext)
+            #endif
             return
         }
         modelContext.insert(AppUserSettings(onboardingCompleted: shouldSkipOnboarding))
         do {
             try modelContext.save()
+            #if DEBUG
+            UITestDebtScenarioSeeder.prepareIfRequested(modelContext: modelContext)
+            #endif
         } catch {
             assertionFailure("Could not create app settings: \(error)")
         }

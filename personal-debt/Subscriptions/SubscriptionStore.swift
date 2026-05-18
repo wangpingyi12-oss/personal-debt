@@ -46,6 +46,15 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
             return
         }
 
+        #if DEBUG
+        if ProcessInfo.processInfo.arguments.contains("-UITestFullAccess") {
+            hasStarted = true
+            accessState = .subscribed(productID: "ui.test.fullAccess", renewalDate: nil)
+            products = SubscriptionCatalog.fallbackOptions
+            return
+        }
+        #endif
+
         hasStarted = true
         ensureTrialStarted()
         refreshAccessState(activeSubscription: nil)

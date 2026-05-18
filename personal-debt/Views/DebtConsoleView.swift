@@ -52,6 +52,7 @@ private struct MainDebtTabView: View {
     @State private var showingStatementUpdate = false
     @State private var showingSettings = false
     @State private var showingOverdues = false
+    @State private var showingManualOverdue = false
     @State private var preselectedPayment: DebtSelection?
     @State private var preselectedCardForStatement: UUID?
     @State private var message: UXMessage?
@@ -59,95 +60,99 @@ private struct MainDebtTabView: View {
     private let readService = DebtReadService()
 
     var body: some View {
-        TabView(selection: $selectedTab) {
-            OverviewTab(
-                settings: settings,
-                summary: analyticsSummary,
-                debtItems: debtItems,
+        ZStack(alignment: .bottomTrailing) {
+            TabView(selection: $selectedTab) {
+                OverviewTab(
+                    settings: settings,
+                    summary: analyticsSummary,
+                    debtItems: debtItems,
+                    onAddDebt: { showingAddDebt = true },
+                    onOpenOverdues: { showingOverdues = true },
+                    onOpenSettings: { showingSettings = true }
+                )
+                .tabItem { Label("tab.dashboard", systemImage: "chart.pie.fill") }
+                .tag(AppTab.overview)
+
+                DebtListTab(
+                    debtItems: debtItems,
+                    creditCards: creditCards,
+                    cardRules: cardRules,
+                    cardStatements: cardStatements,
+                    cardPlans: cardPlans,
+                    cardBreakdowns: cardBreakdowns,
+                    cardPayments: cardPayments,
+                    cardOverdues: cardOverdues,
+                    cardInstallments: cardInstallments,
+                    loans: loans,
+                    loanPlans: loanPlans,
+                    loanPayments: loanPayments,
+                    loanAllocations: loanAllocations,
+                    loanOverdues: loanOverdues,
+                    loanRules: loanRules,
+                    personalDebts: personalDebts,
+                    personalPlans: personalPlans,
+                    personalPayments: personalPayments,
+                    personalAllocations: personalAllocations,
+                    personalOverdues: personalOverdues,
+                    settings: settings,
+                    onAddDebt: { showingAddDebt = true },
+                    onRecordPayment: { selection in
+                        preselectedPayment = selection
+                        showingPayment = true
+                    },
+                    onUpdateStatement: { cardID in
+                        preselectedCardForStatement = cardID
+                        showingStatementUpdate = true
+                    },
+                    onResult: showResult
+                )
+                .tabItem { Label("tab.debts", systemImage: "creditcard.fill") }
+                .tag(AppTab.debts)
+
+                PaymentLedgerTab(
+                    creditCards: activeCreditCards,
+                    loans: activeLoans,
+                    personalDebts: activePersonalDebts,
+                    cardPayments: cardPayments,
+                    loanPayments: loanPayments,
+                    personalPayments: personalPayments,
+                    onRecordPayment: {
+                        preselectedPayment = nil
+                        showingPayment = true
+                    }
+                )
+                .tabItem { Label("tab.payments", systemImage: "arrow.left.arrow.right.circle.fill") }
+                .tag(AppTab.payments)
+
+                StrategyTab(
+                    settings: settings,
+                    batches: strategyBatches,
+                    simulations: strategySimulations,
+                    onResult: showResult
+                )
+                .tabItem { Label("tab.strategy", systemImage: "sparkles") }
+                .tag(AppTab.strategy)
+
+                StatisticsTab(
+                    summary: analyticsSummary,
+                    debtItems: debtItems,
+                    paymentRows: paymentRows,
+                    onOpenOverdues: { showingOverdues = true }
+                )
+                .tabItem { Label("tab.statistics", systemImage: "chart.line.uptrend.xyaxis") }
+                .tag(AppTab.statistics)
+            }
+
+            FloatingAddMenu(
                 onAddDebt: { showingAddDebt = true },
                 onRecordPayment: {
                     preselectedPayment = nil
                     showingPayment = true
                 },
-                onUpdateStatement: {
-                    preselectedCardForStatement = activeCreditCards.first?.id
-                    showingStatementUpdate = true
-                },
-                onGenerateStrategy: { selectedTab = .strategy },
-                onOpenOverdues: { showingOverdues = true },
-                onOpenSettings: { showingSettings = true }
+                onAddOverdue: { showingManualOverdue = true }
             )
-            .tabItem { Label("tab.dashboard", systemImage: "chart.pie.fill") }
-            .tag(AppTab.overview)
-
-            DebtListTab(
-                debtItems: debtItems,
-                creditCards: creditCards,
-                cardRules: cardRules,
-                cardStatements: cardStatements,
-                cardPlans: cardPlans,
-                cardBreakdowns: cardBreakdowns,
-                cardPayments: cardPayments,
-                cardOverdues: cardOverdues,
-                cardInstallments: cardInstallments,
-                loans: loans,
-                loanPlans: loanPlans,
-                loanPayments: loanPayments,
-                loanAllocations: loanAllocations,
-                loanOverdues: loanOverdues,
-                loanRules: loanRules,
-                personalDebts: personalDebts,
-                personalPlans: personalPlans,
-                personalPayments: personalPayments,
-                personalAllocations: personalAllocations,
-                personalOverdues: personalOverdues,
-                settings: settings,
-                onAddDebt: { showingAddDebt = true },
-                onRecordPayment: { selection in
-                    preselectedPayment = selection
-                    showingPayment = true
-                },
-                onUpdateStatement: { cardID in
-                    preselectedCardForStatement = cardID
-                    showingStatementUpdate = true
-                },
-                onResult: showResult
-            )
-            .tabItem { Label("tab.debts", systemImage: "creditcard.fill") }
-            .tag(AppTab.debts)
-
-            PaymentLedgerTab(
-                creditCards: activeCreditCards,
-                loans: activeLoans,
-                personalDebts: activePersonalDebts,
-                cardPayments: cardPayments,
-                loanPayments: loanPayments,
-                personalPayments: personalPayments,
-                onRecordPayment: {
-                    preselectedPayment = nil
-                    showingPayment = true
-                }
-            )
-            .tabItem { Label("tab.payments", systemImage: "arrow.left.arrow.right.circle.fill") }
-            .tag(AppTab.payments)
-
-            StrategyTab(
-                settings: settings,
-                batches: strategyBatches,
-                simulations: strategySimulations,
-                onResult: showResult
-            )
-            .tabItem { Label("tab.strategy", systemImage: "sparkles") }
-            .tag(AppTab.strategy)
-
-            StatisticsTab(
-                summary: analyticsSummary,
-                debtItems: debtItems,
-                paymentRows: paymentRows,
-                onOpenOverdues: { showingOverdues = true }
-            )
-            .tabItem { Label("tab.statistics", systemImage: "chart.line.uptrend.xyaxis") }
-            .tag(AppTab.statistics)
+            .padding(.trailing, 18)
+            .padding(.bottom, 84)
         }
         .tint(DebtTheme.primary)
         .sheet(isPresented: $showingAddDebt) {
@@ -201,8 +206,31 @@ private struct MainDebtTabView: View {
             .environmentObject(subscriptionStore)
         }
         .sheet(isPresented: $showingSettings) {
-            SettingsView(settings: settings)
+            SettingsView(
+                settings: settings,
+                creditCards: activeCreditCards,
+                cardRules: cardRules,
+                loans: activeLoans,
+                loanRules: loanRules
+            )
                 .environmentObject(subscriptionStore)
+        }
+        .sheet(isPresented: $showingManualOverdue) {
+            ManualOverdueEntrySheet(
+                settings: settings,
+                creditCards: activeCreditCards,
+                cardStatements: cardStatements,
+                cardPlans: cardPlans,
+                cardOverdues: cardOverdues,
+                loans: activeLoans,
+                loanPlans: loanPlans,
+                loanOverdues: loanOverdues,
+                personalDebts: activePersonalDebts,
+                personalPlans: personalPlans,
+                personalOverdues: personalOverdues,
+                onResult: showResult
+            )
+            .environmentObject(subscriptionStore)
         }
         .sheet(isPresented: $showingOverdues) {
             OverdueListView(
@@ -408,9 +436,6 @@ private struct OverviewTab: View {
     var summary: AnalyticsSummary
     var debtItems: [DebtListItem]
     var onAddDebt: () -> Void
-    var onRecordPayment: () -> Void
-    var onUpdateStatement: () -> Void
-    var onGenerateStrategy: () -> Void
     var onOpenOverdues: () -> Void
     var onOpenSettings: () -> Void
 
@@ -483,15 +508,6 @@ private struct OverviewTab: View {
                             ? AppText.string("overview.riskCopy", defaultValue: "Start with overdue and minimum payments. Amounts here are app estimates, not creditor results.")
                             : AppText.string("overview.calmCopy", defaultValue: "Keep records updated to make monthly planning easier.")
                     )
-
-                    SectionCard(title: AppText.string("overview.quickActions", defaultValue: "Quick Actions")) {
-                        LazyVGrid(columns: twoColumns, spacing: 12) {
-                            QuickActionButton(title: AppText.string("payments.record", defaultValue: "Record Payment"), icon: "checkmark.circle.fill", action: onRecordPayment)
-                            QuickActionButton(title: AppText.string("statement.update", defaultValue: "Update Statement"), icon: "doc.text.fill", action: onUpdateStatement)
-                            QuickActionButton(title: AppText.string("strategy.generateNow", defaultValue: "Generate Strategy"), icon: "sparkles", action: onGenerateStrategy)
-                            QuickActionButton(title: AppText.string("debt.add", defaultValue: "Add Debt"), icon: "plus.circle.fill", action: onAddDebt)
-                        }
-                    }
 
                     SectionCard(title: AppText.string("overview.recent", defaultValue: "Recent Activity")) {
                         if let latest = debtItems.first {
@@ -795,6 +811,7 @@ private struct DebtDetailScreen: View {
                     )
                 }
             }
+            .accessibilityIdentifier("debt.detail.currentStatement")
 
             if let breakdown {
                 SectionCard(title: AppText.string("statement.breakdown", defaultValue: "Statement Breakdown")) {
@@ -1260,6 +1277,10 @@ private struct SettingsView: View {
     @EnvironmentObject private var subscriptionStore: SubscriptionStore
     @Environment(\.dismiss) private var dismiss
     @Bindable var settings: AppUserSettings
+    var creditCards: [CreditCardDebt]
+    var cardRules: [CreditCardCalculationRule]
+    var loans: [LoanDebt]
+    var loanRules: [LoanCalculationRule]
 
     @State private var budgetText = ""
     @State private var showingSubscription = false
@@ -1277,20 +1298,6 @@ private struct SettingsView: View {
                     }
                 }
 
-                Section(AppText.string("settings.language", defaultValue: "Language")) {
-                    Picker(AppText.string("settings.language", defaultValue: "Language"), selection: Binding(
-                        get: { settings.languagePreference },
-                        set: {
-                            settings.languagePreference = $0
-                            try? modelContext.save()
-                        }
-                    )) {
-                        ForEach(AppLanguagePreference.allCases) { preference in
-                            Text(preference.displayName).tag(preference)
-                        }
-                    }
-                }
-
                 Section(AppText.string("settings.access", defaultValue: "Access")) {
                     Label(subscriptionStore.accessState.statusTitle, systemImage: subscriptionStore.hasFullAccess ? "checkmark.seal.fill" : "lock.fill")
                     Text(subscriptionStore.accessState.statusDetail)
@@ -1304,9 +1311,21 @@ private struct SettingsView: View {
                 }
 
                 Section(AppText.string("settings.rules", defaultValue: "Calculation Rules")) {
-                    Label(AppText.string("settings.creditCardRules", defaultValue: "Credit card rules use statement and minimum-payment logic."), systemImage: "creditcard")
-                    Label(AppText.string("settings.loanRules", defaultValue: "Loan rules use app repayment-plan allocation."), systemImage: "calendar")
-                    Label(AppText.string("settings.strategyDisclaimer", defaultValue: "Strategy results are internal simulations and do not change real debt records."), systemImage: "sparkles")
+                    NavigationLink {
+                        CalculationRulesView(
+                            creditCards: creditCards,
+                            cardRules: cardRules,
+                            loans: loans,
+                            loanRules: loanRules,
+                            settings: settings
+                        )
+                        .environmentObject(subscriptionStore)
+                    } label: {
+                        Label(AppText.string("settings.customRules", defaultValue: "Custom Calculation Rules"), systemImage: "slider.horizontal.3")
+                    }
+                    Text(AppText.string("settings.rulesCopy", defaultValue: "Customize minimum payment, overdue fee, penalty interest and allocation rules."))
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
                 }
 
                 Section(AppText.string("settings.privacy", defaultValue: "Privacy")) {
@@ -1347,6 +1366,299 @@ private struct SettingsView: View {
                 SubscriptionView()
                     .environmentObject(subscriptionStore)
             }
+        }
+    }
+}
+
+private struct CalculationRulesView: View {
+    var creditCards: [CreditCardDebt]
+    var cardRules: [CreditCardCalculationRule]
+    var loans: [LoanDebt]
+    var loanRules: [LoanCalculationRule]
+    @Bindable var settings: AppUserSettings
+
+    private var globalLoanRule: LoanCalculationRule? {
+        loanRules.first { $0.debtID == nil }
+    }
+
+    var body: some View {
+        List {
+            Section {
+                Text(AppText.string("rules.disclaimer", defaultValue: "Rules are app-side calculation assumptions. They help previews, overdue estimates, statistics and strategy simulations, and do not change creditor records."))
+                    .font(.subheadline)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section(AppText.string("debtType.creditCard", defaultValue: "Credit Card")) {
+                if creditCards.isEmpty {
+                    Text(AppText.string("empty.noDebts", defaultValue: "No debts yet"))
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(creditCards) { debt in
+                        if let rule = cardRules.first(where: { $0.debtID == debt.id }) {
+                            NavigationLink {
+                                CreditCardRuleEditor(debt: debt, rule: rule, settings: settings)
+                            } label: {
+                                RuleRow(title: debt.name, subtitle: AppText.string("rules.creditCardSubtitle", defaultValue: "Minimum payment, revolving interest and overdue penalty"))
+                            }
+                        } else {
+                            RuleRow(title: debt.name, subtitle: AppText.string("rules.noRule", defaultValue: "No editable rule found"))
+                        }
+                    }
+                }
+            }
+
+            Section(AppText.string("debtType.loan", defaultValue: "Loan")) {
+                NavigationLink {
+                    LoanRuleEditor(
+                        title: AppText.string("rules.globalLoanDefault", defaultValue: "Global Loan Default"),
+                        debtID: nil,
+                        existingRule: globalLoanRule,
+                        settings: settings
+                    )
+                } label: {
+                    RuleRow(title: AppText.string("rules.globalLoanDefault", defaultValue: "Global Loan Default"), subtitle: AppText.string("rules.globalLoanSubtitle", defaultValue: "Used when a loan has no custom rule"))
+                }
+
+                ForEach(loans) { debt in
+                    NavigationLink {
+                        LoanRuleEditor(
+                            title: debt.name,
+                            debtID: debt.id,
+                            existingRule: loanRules.first { $0.debtID == debt.id },
+                            settings: settings
+                        )
+                    } label: {
+                        let hasCustomRule = loanRules.contains { $0.debtID == debt.id }
+                        RuleRow(
+                            title: debt.name,
+                            subtitle: hasCustomRule ? AppText.string("rules.customLoanRule", defaultValue: "Custom loan rule") : AppText.string("rules.usesGlobalRule", defaultValue: "Uses global or built-in default")
+                        )
+                    }
+                }
+            }
+        }
+        .navigationTitle("settings.customRules")
+    }
+}
+
+private struct RuleRow: View {
+    var title: String
+    var subtitle: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.body.weight(.medium))
+            Text(subtitle)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+        }
+        .padding(.vertical, 4)
+    }
+}
+
+private struct CreditCardRuleEditor: View {
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
+    @Environment(\.dismiss) private var dismiss
+    var debt: CreditCardDebt
+    @Bindable var rule: CreditCardCalculationRule
+    @Bindable var settings: AppUserSettings
+
+    @State private var minimumPaymentRatioText = ""
+    @State private var minimumPaymentFloorText = ""
+    @State private var revolvingInterestEnabled = true
+    @State private var revolvingDailyRateText = ""
+    @State private var overdueFeeRateText = ""
+    @State private var minimumOverdueFeeText = ""
+    @State private var fixedOverdueFeeText = ""
+    @State private var penaltyBaseType: LoanPenaltyBaseType = .unpaidAmount
+    @State private var penaltyDailyRateText = ""
+    @State private var message: UXMessage?
+
+    var body: some View {
+        Form {
+            Section(AppText.string("rules.minimumPayment", defaultValue: "Minimum Payment")) {
+                TextField(AppText.string("rules.minimumPaymentRatio", defaultValue: "Minimum payment ratio (%)"), text: $minimumPaymentRatioText)
+                    .keyboardType(.decimalPad)
+                TextField(AppText.string("rules.minimumPaymentFloor", defaultValue: "Minimum payment floor"), text: $minimumPaymentFloorText)
+                    .keyboardType(.decimalPad)
+            }
+
+            Section(AppText.string("rules.revolvingInterest", defaultValue: "Revolving Interest")) {
+                Toggle(AppText.string("rules.revolvingEnabled", defaultValue: "Enable revolving interest"), isOn: $revolvingInterestEnabled)
+                TextField(AppText.string("rules.dailyRatePercent", defaultValue: "Daily rate (%)"), text: $revolvingDailyRateText)
+                    .keyboardType(.decimalPad)
+            }
+
+            Section(AppText.string("rules.overduePenalty", defaultValue: "Overdue Penalty")) {
+                TextField(AppText.string("rules.overdueFeeRate", defaultValue: "Overdue fee rate (%)"), text: $overdueFeeRateText)
+                    .keyboardType(.decimalPad)
+                TextField(AppText.string("rules.minimumOverdueFee", defaultValue: "Minimum overdue fee"), text: $minimumOverdueFeeText)
+                    .keyboardType(.decimalPad)
+                TextField(AppText.string("rules.fixedOverdueFeeOptional", defaultValue: "Fixed overdue fee, optional"), text: $fixedOverdueFeeText)
+                    .keyboardType(.decimalPad)
+                Picker(AppText.string("rules.penaltyBase", defaultValue: "Penalty base"), selection: $penaltyBaseType) {
+                    ForEach(LoanPenaltyBaseType.allCases) { type in
+                        Text(ruleText("loanPenaltyBase.\(type.rawValue)", fallback: type.rawValue)).tag(type)
+                    }
+                }
+                TextField(AppText.string("rules.penaltyDailyRatePercent", defaultValue: "Penalty daily rate (%)"), text: $penaltyDailyRateText)
+                    .keyboardType(.decimalPad)
+            }
+        }
+        .navigationTitle(debt.name)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("common.save") { save() }
+            }
+        }
+        .onAppear(perform: load)
+        .alert(item: $message) { message in
+            Alert(title: Text(message.title), message: Text(message.detail), dismissButton: .default(Text("common.ok")))
+        }
+    }
+
+    private func load() {
+        minimumPaymentRatioText = plainNumber(rule.minimumPaymentRatio * 100)
+        minimumPaymentFloorText = plainNumber(rule.minimumPaymentFloor)
+        revolvingInterestEnabled = rule.revolvingInterestEnabled
+        revolvingDailyRateText = plainNumber(rule.revolvingDailyRate * 100)
+        overdueFeeRateText = plainNumber(rule.overdueFeeRate * 100)
+        minimumOverdueFeeText = plainNumber(rule.minimumOverdueFee)
+        fixedOverdueFeeText = rule.fixedOverdueFee.map(plainNumber) ?? ""
+        penaltyBaseType = rule.penaltyBaseType
+        penaltyDailyRateText = plainNumber(rule.penaltyDailyRate * 100)
+    }
+
+    private func save() {
+        do {
+            try subscriptionStore.requireWriteAccess()
+            rule.minimumPaymentRatio = decimal(from: minimumPaymentRatioText) / 100
+            rule.minimumPaymentFloor = decimal(from: minimumPaymentFloorText)
+            rule.revolvingInterestEnabled = revolvingInterestEnabled
+            rule.revolvingDailyRate = decimal(from: revolvingDailyRateText) / 100
+            rule.overdueFeeRate = decimal(from: overdueFeeRateText) / 100
+            rule.minimumOverdueFee = decimal(from: minimumOverdueFeeText)
+            rule.fixedOverdueFee = decimalOptional(from: fixedOverdueFeeText)
+            rule.penaltyBaseType = penaltyBaseType
+            rule.penaltyDailyRate = decimal(from: penaltyDailyRateText) / 100
+            markStrategyDirty(settings, in: modelContext)
+            try modelContext.save()
+            dismiss()
+        } catch {
+            modelContext.rollback()
+            message = UXMessage(title: AppText.string("message.error.title", defaultValue: "Could not complete action"), detail: uxErrorDescription(error))
+        }
+    }
+}
+
+private struct LoanRuleEditor: View {
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
+    @Environment(\.dismiss) private var dismiss
+    var title: String
+    var debtID: UUID?
+    var existingRule: LoanCalculationRule?
+    @Bindable var settings: AppUserSettings
+
+    @State private var overdueBaseType: LoanOverdueBaseType = .currentUnpaidPrincipal
+    @State private var overdueFeeMode: LoanOverdueFeeMode = .zero
+    @State private var fixedOverdueFeeText = ""
+    @State private var overdueFeeRateText = ""
+    @State private var penaltyInterestMode: LoanPenaltyInterestMode = .loanDailyRateMultiplier
+    @State private var penaltyRateMultiplierText = ""
+    @State private var fixedPenaltyDailyRateText = ""
+    @State private var paymentAllocationMode: LoanPaymentAllocationMode = .feeFirst
+    @State private var message: UXMessage?
+
+    private var baseRule: LoanCalculationRule {
+        existingRule ?? LoanCalculationRule.builtInDefault(debtID: debtID)
+    }
+
+    var body: some View {
+        Form {
+            Section(AppText.string("rules.overdueFee", defaultValue: "Overdue Fee")) {
+                Picker(AppText.string("rules.overdueBase", defaultValue: "Overdue base"), selection: $overdueBaseType) {
+                    ForEach(LoanOverdueBaseType.allCases) { type in
+                        Text(ruleText("loanOverdueBase.\(type.rawValue)", fallback: type.rawValue)).tag(type)
+                    }
+                }
+                Picker(AppText.string("rules.overdueFeeMode", defaultValue: "Overdue fee mode"), selection: $overdueFeeMode) {
+                    ForEach(LoanOverdueFeeMode.allCases) { mode in
+                        Text(ruleText("loanOverdueFeeMode.\(mode.rawValue)", fallback: mode.rawValue)).tag(mode)
+                    }
+                }
+                TextField(AppText.string("rules.fixedOverdueFeeOptional", defaultValue: "Fixed overdue fee, optional"), text: $fixedOverdueFeeText)
+                    .keyboardType(.decimalPad)
+                TextField(AppText.string("rules.overdueFeeRate", defaultValue: "Overdue fee rate (%)"), text: $overdueFeeRateText)
+                    .keyboardType(.decimalPad)
+            }
+
+            Section(AppText.string("rules.penaltyInterest", defaultValue: "Penalty Interest")) {
+                Picker(AppText.string("rules.penaltyMode", defaultValue: "Penalty mode"), selection: $penaltyInterestMode) {
+                    ForEach(LoanPenaltyInterestMode.allCases) { mode in
+                        Text(ruleText("loanPenaltyMode.\(mode.rawValue)", fallback: mode.rawValue)).tag(mode)
+                    }
+                }
+                TextField(AppText.string("rules.penaltyMultiplier", defaultValue: "Penalty rate multiplier"), text: $penaltyRateMultiplierText)
+                    .keyboardType(.decimalPad)
+                TextField(AppText.string("rules.fixedPenaltyDailyRatePercent", defaultValue: "Fixed penalty daily rate (%)"), text: $fixedPenaltyDailyRateText)
+                    .keyboardType(.decimalPad)
+            }
+
+            Section(AppText.string("rules.paymentAllocation", defaultValue: "Payment Allocation")) {
+                Picker(AppText.string("rules.paymentAllocation", defaultValue: "Payment Allocation"), selection: $paymentAllocationMode) {
+                    ForEach(LoanPaymentAllocationMode.allCases) { mode in
+                        Text(ruleText("loanAllocationMode.\(mode.rawValue)", fallback: mode.rawValue)).tag(mode)
+                    }
+                }
+            }
+        }
+        .navigationTitle(title)
+        .toolbar {
+            ToolbarItem(placement: .confirmationAction) {
+                Button("common.save") { save() }
+            }
+        }
+        .onAppear(perform: load)
+        .alert(item: $message) { message in
+            Alert(title: Text(message.title), message: Text(message.detail), dismissButton: .default(Text("common.ok")))
+        }
+    }
+
+    private func load() {
+        overdueBaseType = baseRule.overdueBaseType
+        overdueFeeMode = baseRule.overdueFeeMode
+        fixedOverdueFeeText = baseRule.fixedOverdueFee.map(plainNumber) ?? ""
+        overdueFeeRateText = baseRule.overdueFeeRate.map { plainNumber($0 * 100) } ?? ""
+        penaltyInterestMode = baseRule.penaltyInterestMode
+        penaltyRateMultiplierText = plainNumber(baseRule.penaltyRateMultiplier)
+        fixedPenaltyDailyRateText = baseRule.fixedPenaltyDailyRate.map { plainNumber($0 * 100) } ?? ""
+        paymentAllocationMode = baseRule.paymentAllocationMode
+    }
+
+    private func save() {
+        do {
+            _ = try LoanDebtService(modelContext: modelContext, writeAccessAuthorizer: subscriptionStore).upsertCalculationRule(
+                existingRule: existingRule,
+                input: LoanCalculationRuleInput(
+                    debtID: debtID,
+                    overdueBaseType: overdueBaseType,
+                    overdueFeeMode: overdueFeeMode,
+                    fixedOverdueFee: decimalOptional(from: fixedOverdueFeeText),
+                    overdueFeeRate: decimalOptional(from: overdueFeeRateText).map { $0 / 100 },
+                    penaltyInterestMode: penaltyInterestMode,
+                    penaltyRateMultiplier: decimal(from: penaltyRateMultiplierText),
+                    fixedPenaltyDailyRate: decimalOptional(from: fixedPenaltyDailyRateText).map { $0 / 100 },
+                    paymentAllocationMode: paymentAllocationMode
+                )
+            )
+            markStrategyDirty(settings, in: modelContext)
+            dismiss()
+        } catch {
+            message = UXMessage(title: AppText.string("message.error.title", defaultValue: "Could not complete action"), detail: uxErrorDescription(error))
         }
     }
 }
@@ -1628,6 +1940,326 @@ private struct AddDebtSheet: View {
                         isInterestBearing: isInterestBearing,
                         monthlyRepaymentDay: repaymentMethod == .equalPrincipalEqualInterest ? repaymentDay : nil,
                         termCount: repaymentMethod == .equalPrincipalEqualInterest ? termCount : 0
+                    )
+                )
+            }
+            markStrategyDirty(settings, in: modelContext)
+            onResult(.success(()))
+            dismiss()
+        } catch {
+            onResult(.failure(error))
+        }
+    }
+}
+
+private struct ManualOverdueEntrySheet: View {
+    @Environment(\.modelContext) private var modelContext
+    @EnvironmentObject private var subscriptionStore: SubscriptionStore
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var settings: AppUserSettings
+
+    var creditCards: [CreditCardDebt]
+    var cardStatements: [CreditCardStatement]
+    var cardPlans: [CreditCardRepaymentPlan]
+    var cardOverdues: [CreditCardOverdueRecord]
+    var loans: [LoanDebt]
+    var loanPlans: [LoanRepaymentPlan]
+    var loanOverdues: [LoanOverdueRecord]
+    var personalDebts: [PersonalLendingDebt]
+    var personalPlans: [PersonalLendingPlan]
+    var personalOverdues: [PersonalLendingOverdueRecord]
+    var onResult: (Result<Void, Error>) -> Void
+
+    @State private var debtType: DebtType = .creditCard
+    @State private var selectedDebtID: UUID?
+    @State private var selectedTargetID: UUID?
+    @State private var amountText = ""
+    @State private var overdueFeeText = "0"
+    @State private var penaltyInterestText = "0"
+    @State private var startDate = Date()
+    @State private var hasEndDate = false
+    @State private var endDate = Date()
+    @State private var note = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section(AppText.string("overdue.addManual", defaultValue: "Add Manual Overdue")) {
+                    Picker(AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
+                        ForEach(DebtType.allCases) { type in
+                            Text(AppText.debtType(type)).tag(type)
+                        }
+                    }
+
+                    debtPicker
+                    targetPicker
+                }
+
+                Section(AppText.string("form.basic", defaultValue: "Basic")) {
+                    if debtType != .loan {
+                        TextField(AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"), text: $amountText)
+                            .keyboardType(.decimalPad)
+                    } else {
+                        DetailRow(title: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"), value: AppText.money(defaultOverdueAmount, currencyCode: settings.currencyCode))
+                    }
+                    TextField(AppText.string("field.overdueFee", defaultValue: "Overdue Fee"), text: $overdueFeeText)
+                        .keyboardType(.decimalPad)
+                    TextField(AppText.string("field.penaltyInterest", defaultValue: "Penalty Interest"), text: $penaltyInterestText)
+                        .keyboardType(.decimalPad)
+                    DatePicker(AppText.string("field.startDate", defaultValue: "Start Date"), selection: $startDate, displayedComponents: .date)
+                    Toggle(AppText.string("field.hasEndDate", defaultValue: "Has end date"), isOn: $hasEndDate)
+                    if hasEndDate {
+                        DatePicker(AppText.string("field.endDate", defaultValue: "End Date"), selection: $endDate, displayedComponents: .date)
+                    }
+                    TextField(AppText.string("field.note", defaultValue: "Note"), text: $note, axis: .vertical)
+                }
+
+                Section(AppText.string("preview.impact", defaultValue: "Impact Preview")) {
+                    ImpactPreviewCard(
+                        beforeTitle: AppText.string("field.debt", defaultValue: "Debt"),
+                        beforeValue: selectedDebtName,
+                        changeTitle: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"),
+                        changeValue: AppText.money(previewOverdueAmount, currencyCode: settings.currencyCode),
+                        afterTitle: AppText.string("field.status", defaultValue: "Status"),
+                        afterValue: AppText.string("debtStatus.overdue", defaultValue: "Overdue")
+                    )
+                    InlineNotice(
+                        style: .risk,
+                        title: AppText.string("overdue.manualNoticeTitle", defaultValue: "Manual overdue record"),
+                        message: AppText.string("overdue.manualNoticeCopy", defaultValue: "Manual overdue entries affect overdue statistics and strategy reminders, but creditor records are not changed.")
+                    )
+                }
+            }
+            .navigationTitle("overdue.addManual")
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("common.cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("common.save") { save() }
+                }
+            }
+            .onAppear(perform: resetSelectionForType)
+            .onChange(of: debtType) {
+                resetSelectionForType()
+            }
+            .onChange(of: selectedDebtID) {
+                resetTargetForDebt()
+            }
+            .onChange(of: selectedTargetID) {
+                syncDefaultAmountIfNeeded(force: true)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var debtPicker: some View {
+        switch debtType {
+        case .creditCard:
+            Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+                ForEach(creditCards) { debt in
+                    Text(debt.name).tag(Optional(debt.id))
+                }
+            }
+        case .loan:
+            Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+                ForEach(loans) { debt in
+                    Text(debt.name).tag(Optional(debt.id))
+                }
+            }
+        case .personalLending:
+            Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+                ForEach(personalDebts) { debt in
+                    Text(debt.name).tag(Optional(debt.id))
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var targetPicker: some View {
+        switch debtType {
+        case .creditCard:
+            Picker(AppText.string("field.currentStatement", defaultValue: "Current Statement"), selection: $selectedTargetID) {
+                ForEach(availableCardStatements) { statement in
+                    Text(statement.billingDate.formatted(date: .abbreviated, time: .omitted))
+                        .tag(Optional(statement.id))
+                }
+            }
+        case .loan:
+            Picker(AppText.string("field.plan", defaultValue: "Plan"), selection: $selectedTargetID) {
+                ForEach(availableLoanPlans) { plan in
+                    Text(String(format: AppText.string("format.period", defaultValue: "Period %d"), plan.periodIndex))
+                        .tag(Optional(plan.id))
+                }
+            }
+        case .personalLending:
+            if availablePersonalPlans.isEmpty {
+                DetailRow(title: AppText.string("field.plan", defaultValue: "Plan"), value: AppText.string("personal.noFixedPlanTarget", defaultValue: "Debt-level overdue"))
+            } else {
+                Picker(AppText.string("field.plan", defaultValue: "Plan"), selection: $selectedTargetID) {
+                    ForEach(availablePersonalPlans) { plan in
+                        Text(String(format: AppText.string("format.period", defaultValue: "Period %d"), plan.periodIndex))
+                            .tag(Optional(plan.id))
+                    }
+                }
+            }
+        }
+    }
+
+    private var selectedDebtName: String {
+        switch debtType {
+        case .creditCard:
+            return creditCards.first { $0.id == selectedDebtID }?.name ?? AppText.string("common.none", defaultValue: "None")
+        case .loan:
+            return loans.first { $0.id == selectedDebtID }?.name ?? AppText.string("common.none", defaultValue: "None")
+        case .personalLending:
+            return personalDebts.first { $0.id == selectedDebtID }?.name ?? AppText.string("common.none", defaultValue: "None")
+        }
+    }
+
+    private var availableCardStatements: [CreditCardStatement] {
+        cardStatements
+            .filter { $0.debtID == selectedDebtID && $0.source == .userConfirmed && $0.isActive && $0.status != .replaced }
+            .sorted { $0.billingDate > $1.billingDate }
+    }
+
+    private var availableLoanPlans: [LoanRepaymentPlan] {
+        loanPlans
+            .filter { $0.debtID == selectedDebtID && $0.status != .paid }
+            .sorted { $0.periodIndex < $1.periodIndex }
+    }
+
+    private var availablePersonalPlans: [PersonalLendingPlan] {
+        personalPlans
+            .filter { $0.debtID == selectedDebtID && $0.status != .paid }
+            .sorted { $0.periodIndex < $1.periodIndex }
+    }
+
+    private var selectedCardStatement: CreditCardStatement? {
+        availableCardStatements.first { $0.id == selectedTargetID }
+    }
+
+    private var selectedCardPlan: CreditCardRepaymentPlan? {
+        guard let statementID = selectedTargetID else { return nil }
+        return cardPlans.first { $0.statementID == statementID }
+    }
+
+    private var selectedLoanPlan: LoanRepaymentPlan? {
+        availableLoanPlans.first { $0.id == selectedTargetID }
+    }
+
+    private var selectedPersonalPlan: PersonalLendingPlan? {
+        availablePersonalPlans.first { $0.id == selectedTargetID }
+    }
+
+    private var selectedPersonalDebt: PersonalLendingDebt? {
+        personalDebts.first { $0.id == selectedDebtID }
+    }
+
+    private var defaultOverdueAmount: Decimal {
+        switch debtType {
+        case .creditCard:
+            return selectedCardStatement?.remainingAmount ?? 0
+        case .loan:
+            guard let plan = selectedLoanPlan else { return 0 }
+            return plan.remainingPrincipal + plan.remainingInterest
+        case .personalLending:
+            return selectedPersonalPlan?.remainingAmount ?? selectedPersonalDebt?.remainingAmount ?? 0
+        }
+    }
+
+    private var previewOverdueAmount: Decimal {
+        debtType == .loan ? defaultOverdueAmount : decimal(from: amountText)
+    }
+
+    private func resetSelectionForType() {
+        switch debtType {
+        case .creditCard:
+            selectedDebtID = creditCards.first?.id
+        case .loan:
+            selectedDebtID = loans.first?.id
+        case .personalLending:
+            selectedDebtID = personalDebts.first?.id
+        }
+        resetTargetForDebt()
+    }
+
+    private func resetTargetForDebt() {
+        switch debtType {
+        case .creditCard:
+            selectedTargetID = availableCardStatements.first?.id
+        case .loan:
+            selectedTargetID = availableLoanPlans.first?.id
+        case .personalLending:
+            selectedTargetID = availablePersonalPlans.first?.id
+        }
+        syncDefaultAmountIfNeeded(force: true)
+    }
+
+    private func syncDefaultAmountIfNeeded(force: Bool = false) {
+        guard debtType != .loan else { return }
+        if force || amountText.isEmpty || decimal(from: amountText) == 0 {
+            amountText = plainNumber(defaultOverdueAmount)
+        }
+    }
+
+    private func save() {
+        do {
+            switch debtType {
+            case .creditCard:
+                guard let debt = creditCards.first(where: { $0.id == selectedDebtID }), let statement = selectedCardStatement else {
+                    throw DebtServiceError.notFound(AppText.string("error.noStatementSelected", defaultValue: "No active statement selected."))
+                }
+                var overdues = cardOverdues
+                _ = try CreditCardDebtService(modelContext: modelContext, writeAccessAuthorizer: subscriptionStore).createManualOverdue(
+                    debt: debt,
+                    statement: statement,
+                    plan: selectedCardPlan,
+                    allStatements: cardStatements,
+                    existingOverdues: &overdues,
+                    input: CreditCardManualOverdueInput(
+                        overdueAmount: decimal(from: amountText),
+                        overdueFee: decimal(from: overdueFeeText),
+                        penaltyInterest: decimal(from: penaltyInterestText),
+                        startDate: startDate,
+                        endDate: hasEndDate ? endDate : nil,
+                        note: note
+                    )
+                )
+            case .loan:
+                guard let debt = loans.first(where: { $0.id == selectedDebtID }), let plan = selectedLoanPlan else {
+                    throw DebtServiceError.notFound(AppText.string("error.noPlanSelected", defaultValue: "No repayment plan selected."))
+                }
+                var overdues = loanOverdues
+                _ = try LoanDebtService(modelContext: modelContext, writeAccessAuthorizer: subscriptionStore).createManualOverdue(
+                    debt: debt,
+                    plan: plan,
+                    existingOverdues: &overdues,
+                    input: LoanManualOverdueInput(
+                        overdueFee: decimal(from: overdueFeeText),
+                        penaltyInterest: decimal(from: penaltyInterestText),
+                        startDate: startDate,
+                        endDate: hasEndDate ? endDate : nil,
+                        note: note
+                    )
+                )
+            case .personalLending:
+                guard let debt = selectedPersonalDebt else {
+                    throw DebtServiceError.notFound(AppText.string("error.noDebtSelected", defaultValue: "No debt selected."))
+                }
+                var overdues = personalOverdues
+                _ = try PersonalLendingDebtService(modelContext: modelContext, writeAccessAuthorizer: subscriptionStore).createManualOverdue(
+                    debt: debt,
+                    plan: selectedPersonalPlan,
+                    existingOverdues: &overdues,
+                    input: PersonalLendingManualOverdueInput(
+                        overdueAmount: decimal(from: amountText),
+                        overdueFee: decimal(from: overdueFeeText),
+                        penaltyInterest: decimal(from: penaltyInterestText),
+                        startDate: startDate,
+                        endDate: hasEndDate ? endDate : nil,
+                        note: note
                     )
                 )
             }
@@ -2428,6 +3060,34 @@ private struct TodoRow: View {
     }
 }
 
+private struct FloatingAddMenu: View {
+    var onAddDebt: () -> Void
+    var onRecordPayment: () -> Void
+    var onAddOverdue: () -> Void
+
+    var body: some View {
+        Menu {
+            Button(action: onAddDebt) {
+                Label(AppText.string("debt.add", defaultValue: "Add Debt"), systemImage: "creditcard")
+            }
+            Button(action: onRecordPayment) {
+                Label(AppText.string("payments.record", defaultValue: "Record Payment"), systemImage: "arrow.left.arrow.right.circle")
+            }
+            Button(action: onAddOverdue) {
+                Label(AppText.string("overdue.addManual", defaultValue: "Add Manual Overdue"), systemImage: "exclamationmark.triangle")
+            }
+        } label: {
+            Image(systemName: "plus")
+                .font(.title2.weight(.bold))
+                .foregroundStyle(.white)
+                .frame(width: 58, height: 58)
+                .background(DebtTheme.primary, in: Circle())
+                .shadow(color: DebtTheme.primary.opacity(0.35), radius: 14, x: 0, y: 8)
+        }
+        .accessibilityLabel(Text("common.add"))
+    }
+}
+
 private struct QuickActionButton: View {
     var title: String
     var icon: String
@@ -3012,6 +3672,10 @@ private func markStrategyDirty(_ settings: AppUserSettings, in modelContext: Mod
 
 private func strategyTitle(_ type: StrategyType) -> String {
     AppText.string("strategyType.\(type.rawValue)", defaultValue: type.rawValue.capitalized)
+}
+
+private func ruleText(_ key: String, fallback: String) -> String {
+    AppText.string(key, defaultValue: fallback)
 }
 
 private func typeColor(_ type: DebtType) -> Color {

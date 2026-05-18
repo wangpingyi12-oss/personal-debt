@@ -65,10 +65,10 @@ struct SubscriptionAccessTests {
     func resolvedPricingUsesStorePriceAndFallbackForMissingProducts() {
         let monthly = SubscriptionProductOption(
             id: SubscriptionCatalog.monthlyProductID,
-            title: "Monthly Premium",
+            title: "Premium",
             durationText: "1 month",
-            priceText: "$2.49/month",
-            calloutText: "Auto-renews monthly",
+            priceText: "$2.49",
+            calloutText: "Auto-renews every 1 month",
             isFallbackPrice: false
         )
 
@@ -76,10 +76,10 @@ struct SubscriptionAccessTests {
 
         #expect(options.count == 2)
         #expect(options[0].id == SubscriptionCatalog.monthlyProductID)
-        #expect(options[0].priceText == "$2.49/month")
+        #expect(options[0].priceText == "$2.49")
         #expect(options[0].isFallbackPrice == false)
         #expect(options[1].id == SubscriptionCatalog.yearlyProductID)
-        #expect(options[1].priceText == "$17.99/year")
+        #expect(options[1].priceText == "$17.99")
         #expect(options[1].isFallbackPrice)
     }
 

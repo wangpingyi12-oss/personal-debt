@@ -28,19 +28,31 @@ struct SubscriptionView: View {
     }
 
     private var header: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            Label(subscriptionStore.accessState.statusTitle, systemImage: statusIcon)
-                .font(.headline)
+        VStack(alignment: .leading, spacing: 14) {
+            HStack(alignment: .top, spacing: 12) {
+                Image(systemName: statusIcon)
+                    .font(.title2.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: 44, height: 44)
+                    .background(.blue, in: RoundedRectangle(cornerRadius: 10))
 
-            Text(subscriptionStore.accessState.statusDetail)
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+                VStack(alignment: .leading, spacing: 6) {
+                    Text(subscriptionStore.accessState.statusTitle)
+                        .font(.headline)
+
+                    Text(subscriptionStore.accessState.statusDetail)
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                }
+            }
 
             Text("subscription.header.copy")
-                .font(.subheadline)
+                .font(.footnote)
                 .foregroundStyle(.secondary)
         }
+        .padding(16)
         .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
     }
 
     private var statusIcon: String {
@@ -67,48 +79,9 @@ struct SubscriptionView: View {
                         await subscriptionStore.purchase(option)
                     }
                 } label: {
-                    HStack(spacing: 12) {
-                        Image(systemName: option.isYearly ? "calendar.badge.clock" : "calendar")
-                            .font(.title3)
-                            .frame(width: 28)
-
-                        VStack(alignment: .leading, spacing: 4) {
-                            HStack(spacing: 8) {
-                                Text(option.title)
-                                    .font(.headline)
-
-                                if option.isYearly {
-                                    Text("subscription.bestValue")
-                                        .font(.caption)
-                                        .fontWeight(.semibold)
-                                        .padding(.horizontal, 8)
-                                        .padding(.vertical, 3)
-                                        .background(.green.opacity(0.14), in: Capsule())
-                                        .foregroundStyle(.green)
-                                }
-                            }
-
-                            Text(option.calloutText)
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-
-                        Spacer(minLength: 12)
-
-                        VStack(alignment: .trailing, spacing: 4) {
-                            Text(option.priceText)
-                                .font(.headline)
-
-                            if option.isFallbackPrice {
-                                Text("subscription.fallback")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                        }
-                    }
-                    .contentShape(Rectangle())
+                    SubscriptionPlanCard(option: option)
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.plain)
                 .disabled(subscriptionStore.isPurchasing || subscriptionStore.isRestoring)
             }
 
@@ -151,6 +124,9 @@ struct SubscriptionView: View {
             Label("subscription.terms.manage", systemImage: "person.crop.circle")
             Label("subscription.terms.readOnly", systemImage: "eye")
         }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 12))
         .font(.subheadline)
         .foregroundStyle(.secondary)
     }
@@ -177,6 +153,65 @@ struct SubscriptionView: View {
             }
         }
         .font(.subheadline)
+    }
+}
+
+private struct SubscriptionPlanCard: View {
+    var option: SubscriptionProductOption
+
+    var body: some View {
+        HStack(alignment: .center, spacing: 14) {
+            Image(systemName: option.isYearly ? "calendar.badge.clock" : "calendar")
+                .font(.title3.weight(.semibold))
+                .foregroundStyle(.blue)
+                .frame(width: 42, height: 42)
+                .background(.blue.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+
+            VStack(alignment: .leading, spacing: 6) {
+                HStack(spacing: 8) {
+                    Text(option.title)
+                        .font(.headline)
+
+                    if option.isYearly {
+                        Text("subscription.bestValue")
+                            .font(.caption.weight(.semibold))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 3)
+                            .background(.green.opacity(0.14), in: Capsule())
+                            .foregroundStyle(.green)
+                    }
+                }
+
+                Text(option.durationText)
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+
+                Text(option.calloutText)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            Spacer(minLength: 12)
+
+            VStack(alignment: .trailing, spacing: 4) {
+                Text(option.priceText)
+                    .font(.title3.weight(.bold))
+
+                if option.isFallbackPrice {
+                    Text("subscription.fallback")
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.background, in: RoundedRectangle(cornerRadius: 12))
+        .overlay {
+            RoundedRectangle(cornerRadius: 12)
+                .stroke(.quaternary, lineWidth: 1)
+        }
+        .contentShape(RoundedRectangle(cornerRadius: 12))
     }
 }
 
