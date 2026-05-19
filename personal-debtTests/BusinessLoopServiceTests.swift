@@ -799,4 +799,249 @@ struct BusinessLoopServiceTests {
         )
         #expect(overdues[1].status == .ignored)
     }
+
+    @Test
+    func personalLendingUpdatePaymentRollsBackWhenMutationWouldOverpay() throws {
+        let service = PersonalLendingDebtService()
+        let (_, debt, plans) = try service.createDebt(
+            PersonalLendingDebtInput(
+                name: "Friend",
+                lenderName: "Alex",
+                note: "",
+                principalAmount: 1000,
+                fixedInterestAmount: 0,
+                borrowedDate: date(2026, 1, 1),
+                agreedEndDate: date(2026, 2, 1),
+                repaymentMethod: .principalAndInterestAtMaturity,
+                isInterestBearing: false,
+                monthlyRepaymentDay: nil,
+                termCount: 0
+            )
+        )
+        var payments: [PersonalLendingPaymentRecord] = []
+        var allocations: [PersonalLendingAllocationDetail] = []
+
+        let (_, firstPayment) = try service.recordPayment(
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            input: PersonalLendingPaymentInput(paymentDate: date(2026, 1, 10), amount: 400, note: "first"),
+            today: date(2026, 1, 10)
+        )
+        _ = try service.recordPayment(
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            input: PersonalLendingPaymentInput(paymentDate: date(2026, 1, 20), amount: 300, note: "second"),
+            today: date(2026, 1, 20)
+        )
+
+        let oldDate = firstPayment.paymentDate
+        let oldAmount = firstPayment.amount
+        let oldNote = firstPayment.note
+        let oldUpdatedAt = firstPayment.updatedAt
+
+        do {
+            _ = try service.updatePayment(
+                firstPayment,
+                input: PersonalLendingPaymentInput(paymentDate: date(2026, 1, 15), amount: 800, note: "edited"),
+                debt: debt,
+                plans: plans,
+                payments: payments,
+                allocationDetails: &allocations,
+                today: date(2026, 1, 25)
+            )
+            #expect(Bool(false))
+        } catch {
+            #expect(error is PersonalLendingPaymentError)
+        }
+
+        #expect(firstPayment.paymentDate == oldDate)
+        #expect(firstPayment.amount == oldAmount)
+        #expect(firstPayment.note == oldNote)
+        #expect(firstPayment.updatedAt == oldUpdatedAt)
+        #expect(debt.paidAmount == decimal("700"))
+        #expect(debt.remainingAmount == decimal("300"))
+    }
+
+    @Test
+    func personalLendingDeletePaymentRecalculatesDebtAndAllocations() throws {
+        let service = PersonalLendingDebtService()
+        let (_, debt, plans) = try service.createDebt(
+            PersonalLendingDebtInput(
+                name: "Friend",
+                lenderName: "Alex",
+                note: "",
+                principalAmount: 600,
+                fixedInterestAmount: 0,
+                borrowedDate: date(2026, 1, 1),
+                agreedEndDate: date(2026, 2, 1),
+                repaymentMethod: .principalAndInterestAtMaturity,
+                isInterestBearing: false,
+                monthlyRepaymentDay: nil,
+                termCount: 0
+            )
+        )
+        var payments: [PersonalLendingPaymentRecord] = []
+        var allocations: [PersonalLendingAllocationDetail] = []
+
+        _ = try service.recordPayment(
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            input: PersonalLendingPaymentInput(paymentDate: date(2026, 1, 10), amount: 200),
+            today: date(2026, 1, 10)
+        )
+        let (_, secondPayment) = try service.recordPayment(
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            input: PersonalLendingPaymentInput(paymentDate: date(2026, 1, 20), amount: 150),
+            today: date(2026, 1, 20)
+        )
+        #expect(debt.paidAmount == decimal("350"))
+        #expect(allocations.count == 2)
+
+        _ = try service.deletePayment(
+            secondPayment,
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            today: date(2026, 1, 21)
+        )
+
+        #expect(payments.count == 1)
+        #expect(payments[0].amount == decimal("200"))
+        #expect(debt.paidAmount == decimal("200"))
+        #expect(debt.remainingAmount == decimal("400"))
+        #expect(allocations.count == 1)
+        #expect(allocations[0].allocatedAmount == decimal("200"))
+    }
+
+    @Test
+    func personalLendingNoPlanIgnoredOverdueDoesNotRegenerateOnRefresh() throws {
+        let service = PersonalLendingDebtService()
+        let (_, debt, plans) = try service.createDebt(
+            PersonalLendingDebtInput(
+                name: "Open",
+                lenderName: "",
+                note: "",
+                principalAmount: 500,
+                fixedInterestAmount: 0,
+                borrowedDate: date(2026, 1, 1),
+                agreedEndDate: date(2026, 1, 10),
+                repaymentMethod: .noFixedPlan,
+                isInterestBearing: false,
+                monthlyRepaymentDay: nil,
+                termCount: 0
+            )
+        )
+        var overdues: [PersonalLendingOverdueRecord] = []
+
+        #expect(plans.isEmpty)
+        _ = try service.refreshOverdues(
+            debt: debt,
+            plans: plans,
+            overdues: &overdues,
+            today: date(2026, 1, 20)
+        )
+        #expect(overdues.count == 1)
+        #expect(overdues[0].status == .active)
+        #expect(overdues[0].planID == nil)
+
+        _ = try service.voidOverdue(
+            overdues[0],
+            debt: debt,
+            plan: nil,
+            plans: plans,
+            overdues: overdues,
+            status: .ignored,
+            today: date(2026, 1, 20)
+        )
+        _ = try service.refreshOverdues(
+            debt: debt,
+            plans: plans,
+            overdues: &overdues,
+            today: date(2026, 1, 25)
+        )
+
+        #expect(overdues.count == 1)
+        #expect(overdues[0].status == .ignored)
+        #expect(debt.status == .active)
+    }
+
+    @Test
+    func personalLendingRejectsEditingSystemOverdueAndSoftDeleteVoidsRelatedRecords() throws {
+        let service = PersonalLendingDebtService()
+        let (_, debt, plans) = try service.createDebt(
+            PersonalLendingDebtInput(
+                name: "Friend",
+                lenderName: "Alex",
+                note: "",
+                principalAmount: 1000,
+                fixedInterestAmount: 0,
+                borrowedDate: date(2026, 1, 1),
+                agreedEndDate: date(2026, 1, 10),
+                repaymentMethod: .principalAndInterestAtMaturity,
+                isInterestBearing: false,
+                monthlyRepaymentDay: nil,
+                termCount: 0
+            )
+        )
+        var overdues: [PersonalLendingOverdueRecord] = []
+
+        _ = try service.refreshOverdues(
+            debt: debt,
+            plans: plans,
+            overdues: &overdues,
+            today: date(2026, 1, 20)
+        )
+
+        do {
+            _ = try service.updateManualOverdue(
+                overdues[0],
+                debt: debt,
+                plan: plans[0],
+                plans: plans,
+                overdues: overdues,
+                input: PersonalLendingManualOverdueInput(
+                    overdueAmount: 900,
+                    overdueFee: 5,
+                    penaltyInterest: 1,
+                    startDate: date(2026, 1, 12)
+                ),
+                today: date(2026, 1, 20)
+            )
+            #expect(Bool(false))
+        } catch {
+            #expect(error is DebtServiceError)
+        }
+
+        _ = try service.createManualOverdue(
+            debt: debt,
+            plan: nil,
+            existingOverdues: &overdues,
+            input: PersonalLendingManualOverdueInput(
+                overdueAmount: 1000,
+                overdueFee: 10,
+                penaltyInterest: 2,
+                startDate: date(2026, 1, 12),
+                note: "manual"
+            ),
+            today: date(2026, 1, 20)
+        )
+        #expect(overdues.count == 2)
+
+        _ = try service.softDeleteDebt(debt, overdues: overdues, today: date(2026, 1, 30))
+
+        #expect(debt.isArchived)
+        #expect(debt.status == .archived)
+        #expect(overdues.allSatisfy { $0.status == .voided })
+        #expect(overdues.allSatisfy { $0.overdueEndDate != nil })
+    }
 }

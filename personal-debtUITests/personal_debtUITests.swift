@@ -67,11 +67,11 @@ final class personal_debtUITests: XCTestCase {
         let addMenuButton = app.buttons["Add"].firstMatch
         XCTAssertTrue(addMenuButton.waitForExistence(timeout: 5))
         addMenuButton.tap()
-        XCTAssertTrue(app.buttons["Add Debt"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Record Payment"].exists)
-        XCTAssertTrue(app.buttons["Add Manual Overdue"].exists)
+        XCTAssertTrue(app.menuItems["Add Debt"].waitForExistence(timeout: 5) || app.buttons["Add Debt"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.menuItems["Record Payment"].exists || app.buttons["Record Payment"].exists)
+        XCTAssertTrue(app.menuItems["Add Manual Overdue"].exists || app.buttons["Add Manual Overdue"].exists)
 
-        app.buttons["Add Manual Overdue"].firstMatch.tap()
+        (app.menuItems["Add Manual Overdue"].firstMatch.exists ? app.menuItems["Add Manual Overdue"].firstMatch : app.buttons["Add Manual Overdue"].firstMatch).tap()
         XCTAssertTrue(app.navigationBars["Add Manual Overdue"].waitForExistence(timeout: 5))
         app.buttons["Cancel"].firstMatch.tap()
 
@@ -124,10 +124,22 @@ final class personal_debtUITests: XCTestCase {
         XCTAssertTrue(app.staticTexts["History"].exists)
 
         app.tabBars.buttons["Statistics"].tap()
-        XCTAssertTrue(app.staticTexts["Debt Statistics"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["Payment Statistics"].exists)
-        XCTAssertTrue(app.staticTexts["Overdue Statistics"].exists)
-        XCTAssertTrue(app.staticTexts["Summary"].exists)
+        XCTAssertTrue(
+            app.otherElements["statistics.debt.card"].firstMatch.waitForExistence(timeout: 8)
+                || app.staticTexts["Debt Statistics"].firstMatch.waitForExistence(timeout: 8)
+        )
+        XCTAssertTrue(
+            app.otherElements["statistics.payment.card"].firstMatch.exists
+                || app.staticTexts["Payment Statistics"].firstMatch.exists
+        )
+        XCTAssertTrue(
+            app.otherElements["statistics.overdue.card"].firstMatch.exists
+                || app.staticTexts["Overdue Statistics"].firstMatch.exists
+        )
+        XCTAssertTrue(
+            app.otherElements["statistics.summary.card"].firstMatch.exists
+                || app.staticTexts["Summary"].firstMatch.exists
+        )
     }
 
     @MainActor

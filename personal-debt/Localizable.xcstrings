@@ -325,6 +325,91 @@
         }
       }
     },
+    "costSource.mixed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mixed"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "混合来源"
+          }
+        }
+      }
+    },
+    "costSource.none" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无来源"
+          }
+        }
+      }
+    },
+    "costSource.scheduledPlan" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scheduled plan"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "计划生成"
+          }
+        }
+      }
+    },
+    "costSource.systemFallback" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "System fallback"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "系统兜底"
+          }
+        }
+      }
+    },
+    "costSource.userProvided" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "User provided"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "用户提供"
+          }
+        }
+      }
+    },
     "dashboard.debtMix" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3615,6 +3700,91 @@
         }
       }
     },
+    "risk.critical" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critical"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "严重"
+          }
+        }
+      }
+    },
+    "risk.high" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高"
+          }
+        }
+      }
+    },
+    "risk.low" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Low"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "低"
+          }
+        }
+      }
+    },
+    "risk.medium" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中"
+          }
+        }
+      }
+    },
+    "risk.none" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
+          }
+        }
+      }
+    },
     "rules.creditCardSubtitle" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4732,6 +4902,380 @@
         }
       }
     },
+    "statistics.allSources" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All sources"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部来源"
+          }
+        }
+      }
+    },
+    "statistics.allTime" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All time"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "全部时间"
+          }
+        }
+      }
+    },
+    "statistics.breakdownConflicts" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Breakdown conflicts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "明细冲突数"
+          }
+        }
+      }
+    },
+    "statistics.bucket" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Bucket"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "区间"
+          }
+        }
+      }
+    },
+    "statistics.category" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Category"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计类别"
+          }
+        }
+      }
+    },
+    "statistics.category.cost" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cost"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成本费用"
+          }
+        }
+      }
+    },
+    "statistics.category.debtStructure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debt Structure"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债结构"
+          }
+        }
+      }
+    },
+    "statistics.category.focus" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus Debts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重点债务"
+          }
+        }
+      }
+    },
+    "statistics.category.overdueRisk" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue Risk"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期风险"
+          }
+        }
+      }
+    },
+    "statistics.category.overview" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overview"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总览"
+          }
+        }
+      }
+    },
+    "statistics.category.paymentAnalysis" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment Analysis"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款分析"
+          }
+        }
+      }
+    },
+    "statistics.controls" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Analysis Controls"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分析筛选"
+          }
+        }
+      }
+    },
+    "statistics.costByType" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cost by Debt Type"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按类型成本"
+          }
+        }
+      }
+    },
+    "statistics.costByTypeExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current cost estimate grouped by debt type."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按债务类型汇总当前成本估算。"
+          }
+        }
+      }
+    },
+    "statistics.costComposition" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cost Composition"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成本构成"
+          }
+        }
+      }
+    },
+    "statistics.costCompositionExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interest, fees and penalties from app-side records."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "来自 App 记录的利息、费用和罚息。"
+          }
+        }
+      }
+    },
+    "statistics.costSource" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cost Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "成本来源"
+          }
+        }
+      }
+    },
+    "statistics.costSourceExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Where the cost estimate came from."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展示成本估算的数据来源。"
+          }
+        }
+      }
+    },
+    "statistics.cumulativePaid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cumulative paid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "累计已还"
+          }
+        }
+      }
+    },
+    "statistics.currentCostCaption" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current app-side estimate"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前 App 侧估算"
+          }
+        }
+      }
+    },
+    "statistics.currentRisk" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current risk"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前风险"
+          }
+        }
+      }
+    },
+    "statistics.currentState" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current state"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前状态"
+          }
+        }
+      }
+    },
     "statistics.debt" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4766,6 +5310,397 @@
         }
       }
     },
+    "statistics.debtStructure" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debt Structure"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "负债结构"
+          }
+        }
+      }
+    },
+    "statistics.debtStructureExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current remaining balance by debt type."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按债务类型展示当前剩余金额。"
+          }
+        }
+      }
+    },
+    "statistics.emptyChart" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No data to chart yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无可绘制的数据。"
+          }
+        }
+      }
+    },
+    "statistics.emptyCost" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No cost data to chart."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无可展示的成本数据。"
+          }
+        }
+      }
+    },
+    "statistics.emptyDebt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No debt balance to chart."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无可展示的债务余额。"
+          }
+        }
+      }
+    },
+    "statistics.emptyFocus" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No focus items yet."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无重点项目。"
+          }
+        }
+      }
+    },
+    "statistics.feesAndPenalty" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fees and penalty interest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "费用与罚息"
+          }
+        }
+      }
+    },
+    "statistics.fixedDebt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed debt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定债务"
+          }
+        }
+      }
+    },
+    "statistics.fixedDebtProgress" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed debt progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定债务进度"
+          }
+        }
+      }
+    },
+    "statistics.focus" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重点关注"
+          }
+        }
+      }
+    },
+    "statistics.focusRanking" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Focus Ranking"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重点排行"
+          }
+        }
+      }
+    },
+    "statistics.focusRankingExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Largest balance, cost, risk and recent payment signals."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "汇总最大余额、最高成本、最高风险和近期还款信号。"
+          }
+        }
+      }
+    },
+    "statistics.generatedAt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成时间"
+          }
+        }
+      }
+    },
+    "statistics.highCostDebts" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High-cost debts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高成本债务"
+          }
+        }
+      }
+    },
+    "statistics.highestCost" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highest cost"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最高成本"
+          }
+        }
+      }
+    },
+    "statistics.highestRisk" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Highest risk"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最高风险"
+          }
+        }
+      }
+    },
+    "statistics.installmentFee" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Installment fee"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分期手续费"
+          }
+        }
+      }
+    },
+    "statistics.item" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Item"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "项目"
+          }
+        }
+      }
+    },
+    "statistics.latestPayment" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Latest payment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近还款"
+          }
+        }
+      }
+    },
+    "statistics.maxSingleDebt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Largest single debt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最大单笔债务"
+          }
+        }
+      }
+    },
+    "statistics.minimumGap" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Minimum gap"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最低还款缺口"
+          }
+        }
+      }
+    },
+    "statistics.month" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月份"
+          }
+        }
+      }
+    },
+    "statistics.otherFee" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Other fee"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "其他费用"
+          }
+        }
+      }
+    },
     "statistics.overdue" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4779,6 +5714,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "逾期统计"
+          }
+        }
+      }
+    },
+    "statistics.overdueAging" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue aging"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期账龄"
+          }
+        }
+      }
+    },
+    "statistics.overdueByType" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue by type"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按类型逾期"
+          }
+        }
+      }
+    },
+    "statistics.overdueByTypeExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current overdue amount split by debt type."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按债务类型拆分当前逾期金额。"
           }
         }
       }
@@ -4800,6 +5786,74 @@
         }
       }
     },
+    "statistics.overdueFee" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue fee"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期费"
+          }
+        }
+      }
+    },
+    "statistics.overviewCaption" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current remaining balance with progress based on recorded repayments."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前剩余余额，还款进度基于已记录还款计算。"
+          }
+        }
+      }
+    },
+    "statistics.paidLoanInterest" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid loan interest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已还贷款利息"
+          }
+        }
+      }
+    },
+    "statistics.paidOffDebts" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid-off debts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已结清债务"
+          }
+        }
+      }
+    },
     "statistics.payment" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4813,6 +5867,57 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "还款统计"
+          }
+        }
+      }
+    },
+    "statistics.paymentBreakdown" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment breakdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款拆分"
+          }
+        }
+      }
+    },
+    "statistics.paymentByType" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment by type"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "按类型还款"
+          }
+        }
+      }
+    },
+    "statistics.paymentByTypeExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Repayments recorded in the selected period."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "展示选中周期内记录的还款。"
           }
         }
       }
@@ -4834,6 +5939,74 @@
         }
       }
     },
+    "statistics.paymentTrend" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payment trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款趋势"
+          }
+        }
+      }
+    },
+    "statistics.paymentTrendExplain" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly repayments in the selected range."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选中范围内按月汇总的还款。"
+          }
+        }
+      }
+    },
+    "statistics.penaltyCaption" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Late-payment interest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "延期产生的罚息"
+          }
+        }
+      }
+    },
+    "statistics.penaltyInterest" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Penalty interest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "罚息"
+          }
+        }
+      }
+    },
     "statistics.period" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4847,6 +6020,159 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "周期"
+          }
+        }
+      }
+    },
+    "statistics.periodPaid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Paid in period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周期内已还"
+          }
+        }
+      }
+    },
+    "statistics.periodPlanned" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Planned in period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "周期内计划还款"
+          }
+        }
+      }
+    },
+    "statistics.progress" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "进度"
+          }
+        }
+      }
+    },
+    "statistics.recentPaymentTarget" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Recent payment target"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最近还款对象"
+          }
+        }
+      }
+    },
+    "statistics.revolvingDebt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revolving debt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "循环债务"
+          }
+        }
+      }
+    },
+    "statistics.riskItems" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risk items"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "风险项目"
+          }
+        }
+      }
+    },
+    "statistics.riskLevel" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risk level"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "风险等级"
+          }
+        }
+      }
+    },
+    "statistics.selectedPeriod" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected period"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "选中周期"
+          }
+        }
+      }
+    },
+    "statistics.statementProgress" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Credit card statement progress"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信用卡账单进度"
           }
         }
       }
@@ -4868,496 +6194,123 @@
         }
       }
     },
-    "statistics.allSources" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All sources" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部来源" } }
-      }
-    },
-    "statistics.allTime" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All time" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "全部时间" } }
-      }
-    },
-    "statistics.breakdownConflicts" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Breakdown conflicts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "明细冲突数" } }
-      }
-    },
-    "statistics.bucket" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Bucket" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "区间" } }
-      }
-    },
-    "statistics.category" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Category" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "统计类别" } }
-      }
-    },
-    "statistics.category.cost" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cost" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "成本费用" } }
-      }
-    },
-    "statistics.category.debtStructure" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Debt Structure" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "负债结构" } }
-      }
-    },
-    "statistics.category.focus" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus Debts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重点债务" } }
-      }
-    },
-    "statistics.category.overdueRisk" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overdue Risk" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "逾期风险" } }
-      }
-    },
-    "statistics.category.overview" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overview" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "总览" } }
-      }
-    },
-    "statistics.category.paymentAnalysis" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payment Analysis" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还款分析" } }
-      }
-    },
-    "statistics.controls" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Analysis Controls" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分析筛选" } }
-      }
-    },
-    "statistics.costByType" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cost by Debt Type" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按类型成本" } }
-      }
-    },
-    "statistics.costByTypeExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current cost estimate grouped by debt type." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按债务类型汇总当前成本估算。" } }
-      }
-    },
-    "statistics.costComposition" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cost Composition" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "成本构成" } }
-      }
-    },
-    "statistics.costCompositionExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Interest, fees and penalties from app-side records." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "来自 App 记录的利息、费用和罚息。" } }
-      }
-    },
-    "statistics.costSource" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cost Source" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "成本来源" } }
-      }
-    },
-    "statistics.costSourceExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Where the cost estimate came from." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "展示成本估算的数据来源。" } }
-      }
-    },
-    "statistics.cumulativePaid" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cumulative paid" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "累计已还" } }
-      }
-    },
-    "statistics.currentCostCaption" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current app-side estimate" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前 App 侧估算" } }
-      }
-    },
-    "statistics.currentRisk" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current risk" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前风险" } }
-      }
-    },
-    "statistics.currentState" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current state" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前状态" } }
-      }
-    },
-    "statistics.debtStructure" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Debt Structure" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "负债结构" } }
-      }
-    },
-    "statistics.debtStructureExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current remaining balance by debt type." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按债务类型展示当前剩余金额。" } }
-      }
-    },
-    "statistics.emptyChart" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No data to chart yet." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无可绘制的数据。" } }
-      }
-    },
-    "statistics.emptyCost" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No cost data to chart." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无可展示的成本数据。" } }
-      }
-    },
-    "statistics.emptyDebt" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No debt balance to chart." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无可展示的债务余额。" } }
-      }
-    },
-    "statistics.emptyFocus" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No focus items yet." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无重点项目。" } }
-      }
-    },
-    "statistics.feesAndPenalty" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fees and penalty interest" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "费用与罚息" } }
-      }
-    },
-    "statistics.fixedDebt" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fixed debt" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "固定债务" } }
-      }
-    },
-    "statistics.fixedDebtProgress" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Fixed debt progress" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "固定债务进度" } }
-      }
-    },
-    "statistics.focus" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重点关注" } }
-      }
-    },
-    "statistics.focusRanking" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focus Ranking" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "重点排行" } }
-      }
-    },
-    "statistics.focusRankingExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Largest balance, cost, risk and recent payment signals." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "汇总最大余额、最高成本、最高风险和近期还款信号。" } }
-      }
-    },
-    "statistics.generatedAt" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generated" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生成时间" } }
-      }
-    },
-    "statistics.highCostDebts" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "High-cost debts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "高成本债务" } }
-      }
-    },
-    "statistics.highestCost" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Highest cost" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最高成本" } }
-      }
-    },
-    "statistics.highestRisk" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Highest risk" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最高风险" } }
-      }
-    },
-    "statistics.installmentFee" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Installment fee" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分期手续费" } }
-      }
-    },
-    "statistics.item" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Item" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "项目" } }
-      }
-    },
-    "statistics.latestPayment" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Latest payment" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最近还款" } }
-      }
-    },
-    "statistics.maxSingleDebt" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Largest single debt" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最大单笔债务" } }
-      }
-    },
-    "statistics.minimumGap" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Minimum gap" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最低还款缺口" } }
-      }
-    },
-    "statistics.month" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Month" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "月份" } }
-      }
-    },
-    "statistics.otherFee" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Other fee" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "其他费用" } }
-      }
-    },
-    "statistics.overdueAging" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overdue aging" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "逾期账龄" } }
-      }
-    },
-    "statistics.overdueByType" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overdue by type" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按类型逾期" } }
-      }
-    },
-    "statistics.overdueByTypeExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current overdue amount split by debt type." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按债务类型拆分当前逾期金额。" } }
-      }
-    },
-    "statistics.overdueFee" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Overdue fee" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "逾期费" } }
-      }
-    },
-    "statistics.overviewCaption" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Current remaining balance with progress based on recorded repayments." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "当前剩余余额，还款进度基于已记录还款计算。" } }
-      }
-    },
-    "statistics.paidLoanInterest" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paid loan interest" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已还贷款利息" } }
-      }
-    },
-    "statistics.paidOffDebts" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paid-off debts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已结清债务" } }
-      }
-    },
-    "statistics.paymentBreakdown" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payment breakdown" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还款拆分" } }
-      }
-    },
-    "statistics.paymentByType" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payment by type" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "按类型还款" } }
-      }
-    },
-    "statistics.paymentByTypeExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Repayments recorded in the selected period." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "展示选中周期内记录的还款。" } }
-      }
-    },
-    "statistics.paymentTrend" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payment trend" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还款趋势" } }
-      }
-    },
-    "statistics.paymentTrendExplain" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monthly repayments in the selected range." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选中范围内按月汇总的还款。" } }
-      }
-    },
-    "statistics.penaltyCaption" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Late-payment interest" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "延期产生的罚息" } }
-      }
-    },
-    "statistics.penaltyInterest" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Penalty interest" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "罚息" } }
-      }
-    },
-    "statistics.periodPaid" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Paid in period" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "周期内已还" } }
-      }
-    },
-    "statistics.periodPlanned" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Planned in period" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "周期内计划还款" } }
-      }
-    },
-    "statistics.progress" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Progress" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "进度" } }
-      }
-    },
-    "statistics.recentPaymentTarget" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Recent payment target" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "最近还款对象" } }
-      }
-    },
-    "statistics.revolvingDebt" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Revolving debt" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "循环债务" } }
-      }
-    },
-    "statistics.riskItems" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Risk items" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "风险项目" } }
-      }
-    },
-    "statistics.riskLevel" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Risk level" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "风险等级" } }
-      }
-    },
-    "statistics.selectedPeriod" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Selected period" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "选中周期" } }
-      }
-    },
-    "statistics.statementProgress" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Credit card statement progress" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "信用卡账单进度" } }
-      }
-    },
     "statistics.totalDebts" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Total debts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "债务总数" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total debts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "债务总数"
+          }
+        }
       }
     },
     "statistics.totalInterest" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Interest" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "利息" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Interest"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "利息"
+          }
+        }
       }
     },
     "statistics.typeBreakdown" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Type breakdown" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "类型拆分" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Type breakdown"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "类型拆分"
+          }
+        }
       }
     },
     "statistics.unpaidDebts" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unpaid debts" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未还债务" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unpaid debts"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未还债务"
+          }
+        }
       }
     },
-    "costSource.mixed" : {
+    "strategy.addedCost" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Mixed" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "混合来源" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Added Cost"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新增成本"
+          }
+        }
       }
     },
-    "costSource.none" : {
+    "strategy.allocated" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No source" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无来源" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allocated"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已分配"
+          }
+        }
       }
     },
-    "costSource.scheduledPlan" : {
+    "strategy.allocationDetails" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Scheduled plan" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "计划生成" } }
-      }
-    },
-    "costSource.systemFallback" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "System fallback" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "系统兜底" } }
-      }
-    },
-    "costSource.userProvided" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "User provided" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "用户提供" } }
-      }
-    },
-    "risk.critical" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Critical" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "严重" } }
-      }
-    },
-    "risk.high" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "High" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "高" } }
-      }
-    },
-    "risk.low" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Low" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "低" } }
-      }
-    },
-    "risk.medium" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Medium" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "中" } }
-      }
-    },
-    "risk.none" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "None" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "无" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Allocation Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分配明细"
+          }
+        }
       }
     },
     "strategy.assistive" : {
@@ -5373,6 +6326,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "模拟"
+          }
+        }
+      }
+    },
+    "strategy.comparisonTable" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Comparison Table"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "对比表格"
           }
         }
       }
@@ -5411,6 +6381,40 @@
         }
       }
     },
+    "strategy.detail" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Strategy Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "策略详情"
+          }
+        }
+      }
+    },
+    "strategy.detailSummary" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Summary"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "概要"
+          }
+        }
+      }
+    },
     "strategy.emptyCopy" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5428,6 +6432,23 @@
         }
       }
     },
+    "strategy.feature" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Feature"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "特点"
+          }
+        }
+      }
+    },
     "strategy.generate" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5441,6 +6462,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "生成策略"
+          }
+        }
+      }
+    },
+    "strategy.generatedAt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generated At"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成时间"
           }
         }
       }
@@ -5530,6 +6568,40 @@
         }
       }
     },
+    "strategy.metric" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Metric"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "指标"
+          }
+        }
+      }
+    },
+    "strategy.monthFormat" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month %d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %d 月"
+          }
+        }
+      }
+    },
     "strategy.monthlyPayment" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5543,6 +6615,176 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "建议月还款"
+          }
+        }
+      }
+    },
+    "strategy.monthlyTimeline" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Monthly Timeline"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "月度还款明细"
+          }
+        }
+      }
+    },
+    "strategy.noAllocations" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No allocation details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无分配明细"
+          }
+        }
+      }
+    },
+    "strategy.noAllocationsCopy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This saved strategy has no debt-level allocation rows."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该策略暂无债务级分配记录。"
+          }
+        }
+      }
+    },
+    "strategy.noComparison" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No comparison data"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无对比数据"
+          }
+        }
+      }
+    },
+    "strategy.noComparisonCopy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generate a strategy comparison to see repayment options."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "生成策略对比后可查看还款方案。"
+          }
+        }
+      }
+    },
+    "strategy.noTimeline" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No monthly details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "暂无月度明细"
+          }
+        }
+      }
+    },
+    "strategy.noTimelineCopy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This saved strategy has no monthly repayment snapshots."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "该策略暂无月度还款快照。"
+          }
+        }
+      }
+    },
+    "strategy.notPaidOffWithinLimit" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Not paid off within simulation window"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "模拟期内未还清"
+          }
+        }
+      }
+    },
+    "strategy.payoffMonth" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Payoff Month"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还清月份"
+          }
+        }
+      }
+    },
+    "strategy.payoffMonthFormat" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Month %d"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "第 %d 个月还清"
           }
         }
       }
@@ -5564,6 +6806,23 @@
         }
       }
     },
+    "strategy.priorityRank" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Priority"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "优先级"
+          }
+        }
+      }
+    },
     "strategy.recommended" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5581,178 +6840,140 @@
         }
       }
     },
-    "strategy.addedCost" : {
+    "strategy.savedStrategy" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Added Cost" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "新增成本" } }
-      }
-    },
-    "strategy.allocated" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allocated" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已分配" } }
-      }
-    },
-    "strategy.allocationDetails" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Allocation Details" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "分配明细" } }
-      }
-    },
-    "strategy.comparisonTable" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Comparison Table" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "对比表格" } }
-      }
-    },
-    "strategy.detail" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Strategy Details" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "策略详情" } }
-      }
-    },
-    "strategy.detailSummary" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Summary" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "概要" } }
-      }
-    },
-    "strategy.feature" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Feature" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "特点" } }
-      }
-    },
-    "strategy.generatedAt" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generated At" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生成时间" } }
-      }
-    },
-    "strategy.metric" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Metric" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "指标" } }
-      }
-    },
-    "strategy.monthFormat" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Month %d" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "第 %d 月" } }
-      }
-    },
-    "strategy.monthlyTimeline" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Monthly Timeline" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "月度还款明细" } }
-      }
-    },
-    "strategy.noAllocations" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No allocation details" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无分配明细" } }
-      }
-    },
-    "strategy.noAllocationsCopy" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This saved strategy has no debt-level allocation rows." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "该策略暂无债务级分配记录。" } }
-      }
-    },
-    "strategy.noComparison" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No comparison data" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无对比数据" } }
-      }
-    },
-    "strategy.noComparisonCopy" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Generate a strategy comparison to see repayment options." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "生成策略对比后可查看还款方案。" } }
-      }
-    },
-    "strategy.noTimeline" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No monthly details" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "暂无月度明细" } }
-      }
-    },
-    "strategy.noTimelineCopy" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "This saved strategy has no monthly repayment snapshots." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "该策略暂无月度还款快照。" } }
-      }
-    },
-    "strategy.notPaidOffWithinLimit" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not paid off within simulation window" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "模拟期内未还清" } }
-      }
-    },
-    "strategy.payoffMonth" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Payoff Month" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "还清月份" } }
-      }
-    },
-    "strategy.payoffMonthFormat" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Month %d" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "第 %d 个月还清" } }
-      }
-    },
-    "strategy.priorityRank" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Priority" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "优先级" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saved Strategy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已保存策略"
+          }
+        }
       }
     },
     "strategy.saveSelected" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Save Selected Strategy" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "保存所选策略" } }
-      }
-    },
-    "strategy.savedStrategy" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Saved Strategy" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已保存策略" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Save Selected Strategy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "保存所选策略"
+          }
+        }
       }
     },
     "strategy.selectCopy" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Choose one strategy from the comparison table before saving." } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请先在对比表中选择一个策略，再保存。" } }
-      }
-    },
-    "strategy.selectTitle" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Select a strategy" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "请选择策略" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose one strategy from the comparison table before saving."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请先在对比表中选择一个策略，再保存。"
+          }
+        }
       }
     },
     "strategy.selected" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Selected" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "已选择" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Selected"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已选择"
+          }
+        }
+      }
+    },
+    "strategy.selectTitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select a strategy"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "请选择策略"
+          }
+        }
       }
     },
     "strategy.totalPayment" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Total Payment" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "总还款额" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Total Payment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "总还款额"
+          }
+        }
       }
     },
     "strategy.unusedBudget" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unused Budget" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "未使用预算" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Unused Budget"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "未使用预算"
+          }
+        }
       }
     },
     "strategy.viewDetail" : {
+      "extractionState" : "stale",
       "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "View Strategy Details" } },
-        "zh-Hans" : { "stringUnit" : { "state" : "translated", "value" : "查看策略详情" } }
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "View Strategy Details"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "查看策略详情"
+          }
+        }
       }
     },
     "strategyType.avalanche" : {

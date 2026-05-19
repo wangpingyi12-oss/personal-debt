@@ -166,6 +166,13 @@ final class SubscriptionStore: ObservableObject, WriteAccessAuthorizing {
     }
 
     func refreshEntitlements() async {
+        #if DEBUG
+        if ProcessInfo.processInfo.environment["XCTestConfigurationFilePath"] != nil {
+            refreshAccessState(activeSubscription: nil)
+            return
+        }
+        #endif
+
         var activeSubscription: ActiveSubscription?
 
         for await result in Transaction.currentEntitlements {

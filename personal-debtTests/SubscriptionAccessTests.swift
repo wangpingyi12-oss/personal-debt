@@ -62,6 +62,37 @@ struct SubscriptionAccessTests {
     }
 
     @Test
+    func missingTrialStartWithoutSubscriptionStaysInLoadingState() {
+        let evaluator = SubscriptionAccessEvaluator()
+
+        let state = evaluator.evaluate(
+            trialStartDate: nil,
+            activeSubscription: nil,
+            now: startDate
+        )
+
+        #expect(state == .loading)
+        #expect(state.allowsFullAccess == false)
+        #expect(state.isReadOnly == false)
+    }
+
+    @Test
+    func trialReportsOneDayRemainingOnFinalActiveSecond() {
+        let policy = TrialAccessPolicy(durationDays: 15)
+
+        let status = policy.status(
+            startDate: startDate,
+            now: startDate.addingTimeInterval((14 * 86_400) + 1)
+        )
+
+        if case .active(_, _, let daysRemaining) = status {
+            #expect(daysRemaining == 1)
+        } else {
+            #expect(Bool(false))
+        }
+    }
+
+    @Test
     func resolvedPricingUsesStorePriceAndFallbackForMissingProducts() {
         let monthly = SubscriptionProductOption(
             id: SubscriptionCatalog.monthlyProductID,
@@ -116,5 +147,46 @@ struct SubscriptionAccessTests {
             let accessError = error as? SubscriptionAccessError
             #expect(accessError == .readOnly)
         }
+    }
+
+    @Test
+    func writeAccessGateAllowsSubscribedState() throws {
+        let store = SubscriptionStore.preview(
+            accessState: .subscribed(
+                productID: SubscriptionCatalog.monthlyProductID,
+                renewalDate: startDate.addingTimeInterval(30 * 86_400)
+            )
+        )
+
+        try store.requireWriteAccess()
+    }
+
+    @Test
+    func resolvedPricingKeepsCatalogOrderAndIgnoresUnknownProducts() {
+        let yearly = SubscriptionProductOption(
+            id: SubscriptionCatalog.yearlyProductID,
+            title: "Premium",
+            durationText: "1 year",
+            priceText: "$15.99",
+            calloutText: "Auto-renews every 1 year",
+            isFallbackPrice: false
+        )
+        let unknown = SubscriptionProductOption(
+            id: "com.personaldebt.premium.legacy",
+            title: "Legacy",
+            durationText: "1 month",
+            priceText: "$0.99",
+            calloutText: "Legacy",
+            isFallbackPrice: false
+        )
+
+        let options = SubscriptionCatalog.resolvedOptions(from: [unknown, yearly])
+
+        #expect(options.count == 2)
+        #expect(options[0].id == SubscriptionCatalog.monthlyProductID)
+        #expect(options[0].isFallbackPrice)
+        #expect(options[1].id == SubscriptionCatalog.yearlyProductID)
+        #expect(options[1].priceText == "$15.99")
+        #expect(options.contains(where: { $0.id == unknown.id }) == false)
     }
 }
