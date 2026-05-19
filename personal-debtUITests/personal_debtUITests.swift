@@ -89,6 +89,22 @@ final class personal_debtUITests: XCTestCase {
 
         app.buttons["Record Payment"].firstMatch.tap()
         XCTAssertTrue(app.navigationBars["Record Payment"].waitForExistence(timeout: 5))
+        let paymentDateButton = app.buttons["Payment Date"].firstMatch.exists
+            ? app.buttons["Payment Date"].firstMatch
+            : app.descendants(matching: .any)["Payment date"].firstMatch
+        if paymentDateButton.waitForExistence(timeout: 5) {
+            paymentDateButton.tap()
+            if app.datePickers.firstMatch.waitForExistence(timeout: 2)
+                || app.pickerWheels.firstMatch.waitForExistence(timeout: 2) {
+                let doneButton = app.buttons["common.done"].firstMatch.exists
+                    ? app.buttons["common.done"].firstMatch
+                    : app.buttons["Done"].firstMatch
+                if doneButton.waitForExistence(timeout: 2) {
+                    doneButton.tap()
+                }
+            }
+        }
+
         let amountField = app.textFields["Amount"].firstMatch
         XCTAssertTrue(amountField.waitForExistence(timeout: 5))
         amountField.tap()

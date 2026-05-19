@@ -7,20 +7,21 @@ enum StrategySimulationError: Error, Equatable {
 }
 
 struct StrategySimulationRequest: Equatable {
+    static let fixedMaxMonths = 360
+
     var strategyDate: Date
     var monthlyBudget: Decimal
-    var maxMonths: Int
+    let maxMonths: Int
     var generatedAt: Date
 
     init(
         strategyDate: Date = Date(),
         monthlyBudget: Decimal,
-        maxMonths: Int = 360,
         generatedAt: Date = Date()
     ) {
         self.strategyDate = strategyDate
         self.monthlyBudget = monthlyBudget
-        self.maxMonths = maxMonths
+        self.maxMonths = Self.fixedMaxMonths
         self.generatedAt = generatedAt
     }
 }
@@ -286,15 +287,12 @@ struct StrategySimulationEngine {
         strategyType: StrategyType,
         monthlyBudget: Decimal,
         debts: [StrategyDebtSnapshot],
-        maxMonths: Int = 360,
         createdAt: Date = Date()
     ) -> StrategySimulationOutput {
         let safeBudget = maxDecimal(monthlyBudget, 0)
-        let safeMonths = min(max(maxMonths, 1), 360)
         let request = StrategySimulationRequest(
             strategyDate: createdAt,
             monthlyBudget: safeBudget,
-            maxMonths: safeMonths,
             generatedAt: createdAt
         )
         return simulate(
@@ -310,7 +308,7 @@ struct StrategySimulationEngine {
         guard request.monthlyBudget >= 0 else {
             throw StrategySimulationError.invalidMonthlyBudget
         }
-        guard (1...360).contains(request.maxMonths) else {
+        guard request.maxMonths == StrategySimulationRequest.fixedMaxMonths else {
             throw StrategySimulationError.invalidMaxMonths
         }
     }

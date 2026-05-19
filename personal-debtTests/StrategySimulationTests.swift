@@ -85,7 +85,7 @@ struct StrategySimulationTests {
         }
 
         let zeroBudget = try engine.generateComparison(
-            request: StrategySimulationRequest(monthlyBudget: 0, maxMonths: 2),
+            request: StrategySimulationRequest(monthlyBudget: 0),
             debts: [debt]
         )
 
@@ -119,7 +119,7 @@ struct StrategySimulationTests {
         )
 
         let result = try StrategySimulationEngine().generateComparison(
-            request: StrategySimulationRequest(strategyDate: strategyDate, monthlyBudget: 100, maxMonths: 1),
+            request: StrategySimulationRequest(strategyDate: strategyDate, monthlyBudget: 100),
             debts: [expensiveCard, overduePersonal]
         )
         let avalanche = try #require(result.simulations.first { $0.simulation.strategyType == .avalanche })
@@ -148,8 +148,7 @@ struct StrategySimulationTests {
             name: "Balanced",
             strategyType: .balanced,
             monthlyBudget: 500,
-            debts: [small, large],
-            maxMonths: 1
+            debts: [small, large]
         )
 
         #expect(result.monthSnapshots.first?.allocatedAmount == 200)
@@ -179,7 +178,7 @@ struct StrategySimulationTests {
         )
 
         let result = try StrategySimulationEngine().generateComparison(
-            request: StrategySimulationRequest(strategyDate: strategyDate, monthlyBudget: 100, maxMonths: 2),
+            request: StrategySimulationRequest(strategyDate: strategyDate, monthlyBudget: 100),
             debts: [highCostCard, smallPersonal]
         )
         let avalanche = try #require(result.simulations.first { $0.simulation.strategyType == .avalanche })
@@ -202,7 +201,7 @@ struct StrategySimulationTests {
         )
 
         let result = try StrategySimulationEngine().generateComparison(
-            request: StrategySimulationRequest(strategyDate: date(2026, 5, 16), monthlyBudget: 0, maxMonths: 1),
+            request: StrategySimulationRequest(strategyDate: date(2026, 5, 16), monthlyBudget: 0),
             debts: [personal]
         )
 
@@ -231,12 +230,86 @@ struct StrategySimulationTests {
         )
 
         let result = try StrategySimulationEngine().generateComparison(
-            request: StrategySimulationRequest(strategyDate: date(2026, 5, 16), monthlyBudget: 0, maxMonths: 1),
+            request: StrategySimulationRequest(strategyDate: date(2026, 5, 16), monthlyBudget: 0),
             debts: [loan]
         )
 
-        #expect(result.simulations.allSatisfy { $0.simulation.totalEstimatedCost == 0 })
-        #expect(result.simulations.allSatisfy { $0.simulation.endingRemainingAmount == 120 })
+        #expect(result.simulations.allSatisfy { $0.monthSnapshots.first?.addedInterestAmount == 0 })
+        #expect(result.simulations.allSatisfy { $0.monthSnapshots.first?.addedPenaltyInterest == 0 })
+        #expect(result.simulations.allSatisfy { $0.monthSnapshots.first?.remainingAmountAfterPayment == 120 })
+    }
+
+    @Test
+    func strategyComparisonReportsPayoffMonthWhenBudgetCanClearDebt() throws {
+        let debt = StrategyDebtSnapshot(
+            debtType: .personalLending,
+            name: "Friend",
+            remainingAmount: 300,
+            minimumPaymentAmount: 0
+        )
+
+        let result = try StrategySimulationEngine().generateComparison(
+            request: StrategySimulationRequest(strategyDate: date(2026, 5, 16), monthlyBudget: 100),
+            debts: [debt]
+        )
+
+        #expect(result.simulations.count == 3)
+        #expect(result.simulations.allSatisfy { $0.simulation.estimatedPayoffMonth == 3 })
+        #expect(result.simulations.allSatisfy { $0.summary.payoffMonth == 3 })
+    }
+
+    @Test
+    func strategyComparisonLeavesPayoffMonthEmptyWhenDebtCannotClearWithinWindow() throws {
+        let debt = StrategyDebtSnapshot(
+            debtType: .personalLending,
+            name: "Friend",
+            remainingAmount: 300,
+            minimumPaymentAmount: 0
+        )
+
+        let result = try StrategySimulationEngine().generateComparison(
+            request: StrategySimulationRequest(strategyDate: date(2026, 5, 16), monthlyBudget: 0),
+            debts: [debt]
+        )
+
+        #expect(result.simulations.count == 3)
+        #expect(result.simulations.allSatisfy { $0.simulation.estimatedPayoffMonth == nil })
+        #expect(result.simulations.allSatisfy { $0.simulation.status == .cannotProgress })
+    }
+
+    @Test
+    func strategyServiceCanPreviewWithoutPersistingThenSaveSelectedStrategy() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = StrategySimulationService(modelContext: context)
+        let request = StrategySimulationRequest(
+            strategyDate: date(2026, 5, 16),
+            monthlyBudget: 100
+        )
+        let debt = StrategyDebtSnapshot(
+            debtType: .personalLending,
+            name: "Friend",
+            remainingAmount: 300,
+            minimumPaymentAmount: 0
+        )
+
+        let preview = try service.generateComparison(request: request, debtSnapshots: [debt])
+
+        #expect(try context.fetch(FetchDescriptor<StrategyComparisonBatch>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<StrategySimulation>()).isEmpty)
+
+        let saved = try service.saveComparisonResult(preview, selectedStrategy: .snowball)
+        let batches = try context.fetch(FetchDescriptor<StrategyComparisonBatch>())
+        let simulations = try context.fetch(FetchDescriptor<StrategySimulation>())
+        let monthSnapshots = try context.fetch(FetchDescriptor<StrategyMonthSnapshot>())
+        let allocations = try context.fetch(FetchDescriptor<StrategyDebtAllocation>())
+
+        #expect(saved.comparisonBatch.recommendedStrategy == .snowball)
+        #expect(batches.count == 1)
+        #expect(batches.first?.recommendedStrategy == .snowball)
+        #expect(simulations.count == 3)
+        #expect(monthSnapshots.isEmpty == false)
+        #expect(allocations.isEmpty == false)
     }
 
     @Test
@@ -277,14 +350,14 @@ struct StrategySimulationTests {
         let service = StrategySimulationService(modelContext: context)
         let request = StrategySimulationRequest(
             strategyDate: date(2026, 5, 16),
-            monthlyBudget: 200,
-            maxMonths: 3
+            monthlyBudget: 200
         )
         let snapshots = try service.makeDebtSnapshots(request: request)
 
         #expect(snapshots.count == 1)
         #expect(snapshots[0].remainingAmount == 400)
         #expect(snapshots[0].minimumPaymentAmount == 0)
+        #expect(request.maxMonths == StrategySimulationRequest.fixedMaxMonths)
 
         _ = try service.generateComparison(request: request)
 

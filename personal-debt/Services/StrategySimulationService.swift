@@ -34,6 +34,30 @@ final class StrategySimulationService {
         return result
     }
 
+    func previewComparison(request: StrategySimulationRequest) throws -> StrategyComparisonResult {
+        let snapshots = try makeDebtSnapshots(request: request)
+        return try engine.generateComparison(request: request, debts: snapshots)
+    }
+
+    func saveComparisonResult(
+        _ result: StrategyComparisonResult,
+        selectedStrategy: StrategyType
+    ) throws -> StrategyComparisonResult {
+        guard let modelContext else {
+            throw DebtServiceError.validationFailed("A model context is required to save a strategy comparison.")
+        }
+
+        let selectedResult = result
+        selectedResult.comparisonBatch.recommendedStrategy = selectedStrategy
+        for output in selectedResult.simulations {
+            output.simulation.recommendationReason = output.simulation.strategyType == selectedStrategy
+                ? selectedResult.comparisonBatch.recommendationReason
+                : ""
+        }
+        try save(selectedResult, in: modelContext)
+        return selectedResult
+    }
+
     func generateComparison(
         request: StrategySimulationRequest,
         debtSnapshots: [StrategyDebtSnapshot],

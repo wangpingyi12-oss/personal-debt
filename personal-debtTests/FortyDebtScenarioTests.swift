@@ -158,7 +158,7 @@ struct FortyDebtScenarioTests {
         try FortyDebtScenarioFixtures.insert(scenario, into: context)
 
         let service = StrategySimulationService(modelContext: context)
-        let request = StrategySimulationRequest(strategyDate: today, monthlyBudget: 50_000, maxMonths: 12)
+        let request = StrategySimulationRequest(strategyDate: today, monthlyBudget: 50_000)
         let snapshots = try service.makeDebtSnapshots(request: request)
         let result = try service.generateComparison(request: request)
         let savedBatches = try context.fetch(FetchDescriptor<StrategyComparisonBatch>())
@@ -170,6 +170,7 @@ struct FortyDebtScenarioTests {
         #expect(snapshots.contains { $0.debtType == .personalLending && $0.name == "Friend-01 No Fixed Plan" })
         #expect(result.simulations.count == 3)
         #expect(result.comparisonBatch.monthlyBudget == 50_000)
+        #expect(result.comparisonBatch.maxMonths == StrategySimulationRequest.fixedMaxMonths)
         #expect(result.comparisonBatch.recommendedStrategy != nil)
         #expect(savedBatches.count == 1)
         #expect(savedSimulations.count == 3)

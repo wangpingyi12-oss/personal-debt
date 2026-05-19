@@ -584,8 +584,7 @@ struct CoreEngineTests {
             name: "Snowball",
             strategyType: .snowball,
             monthlyBudget: 100,
-            debts: [highRateDebt, smallDebt],
-            maxMonths: 1
+            debts: [highRateDebt, smallDebt]
         )
         #expect(snowball.allocations.first?.sourceDebtID == smallDebt.id)
         #expect(snowball.allocations.first?.remainingAmountAfterPayment == 0)
@@ -594,8 +593,7 @@ struct CoreEngineTests {
             name: "Avalanche",
             strategyType: .avalanche,
             monthlyBudget: 100,
-            debts: [highRateDebt, smallDebt],
-            maxMonths: 1
+            debts: [highRateDebt, smallDebt]
         )
         #expect(avalanche.allocations.first?.sourceDebtID == highRateDebt.id)
         #expect(highRateDebt.remainingAmount == 1000)

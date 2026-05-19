@@ -45,6 +45,8 @@ private struct MainDebtTabView: View {
 
     @Query private var strategyBatches: [StrategyComparisonBatch]
     @Query private var strategySimulations: [StrategySimulation]
+    @Query private var strategyMonthSnapshots: [StrategyMonthSnapshot]
+    @Query private var strategyAllocations: [StrategyDebtAllocation]
 
     @State private var selectedTab: AppTab = .overview
     @State private var showingAddDebt = false
@@ -128,15 +130,26 @@ private struct MainDebtTabView: View {
                     settings: settings,
                     batches: strategyBatches,
                     simulations: strategySimulations,
+                    monthSnapshots: strategyMonthSnapshots,
+                    allocations: strategyAllocations,
                     onResult: showResult
                 )
                 .tabItem { Label("tab.strategy", systemImage: "sparkles") }
                 .tag(AppTab.strategy)
 
                 StatisticsTab(
-                    summary: analyticsSummary,
-                    debtItems: debtItems,
-                    paymentRows: paymentRows,
+                    creditCards: creditCards,
+                    cardStatements: cardStatements,
+                    cardBreakdowns: cardBreakdowns,
+                    cardPayments: cardPayments,
+                    loans: loans,
+                    loanPlans: loanPlans,
+                    loanPayments: loanPayments,
+                    loanOverdues: loanOverdues,
+                    personalDebts: personalDebts,
+                    personalPlans: personalPlans,
+                    personalPayments: personalPayments,
+                    personalOverdues: personalOverdues,
                     onOpenOverdues: { showingOverdues = true }
                 )
                 .tabItem { Label("tab.statistics", systemImage: "chart.line.uptrend.xyaxis") }
@@ -1060,11 +1073,15 @@ private struct StrategyTab: View {
     @Bindable var settings: AppUserSettings
     var batches: [StrategyComparisonBatch]
     var simulations: [StrategySimulation]
+    var monthSnapshots: [StrategyMonthSnapshot]
+    var allocations: [StrategyDebtAllocation]
     var onResult: (Result<Void, Error>) -> Void
 
     @State private var monthlyBudgetText = ""
-    @State private var maxMonths = 12
     @State private var latestResult: StrategyComparisonResult?
+    @State private var selectedStrategy: StrategyType?
+    @State private var savedBatchID: UUID?
+    @FocusState private var budgetFocused: Bool
 
     var body: some View {
         NavigationStack {
@@ -1086,12 +1103,20 @@ private struct StrategyTab: View {
 
                 SectionCard(title: AppText.string("strategy.generate", defaultValue: "Generate Strategy")) {
                     VStack(spacing: 12) {
-                        TextField(AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"), text: $monthlyBudgetText)
-                            .keyboardType(.decimalPad)
-                            .textFieldStyle(UXTextFieldStyle())
-                        Stepper(value: $maxMonths, in: 1...360) {
-                            DetailRow(title: AppText.string("field.maxMonths", defaultValue: "Simulation Months"), value: "\(maxMonths)")
+                        HStack(alignment: .firstTextBaseline, spacing: 12) {
+                            FormFieldTitle(title: AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"))
+                            TextField("", text: $monthlyBudgetText)
+                                .keyboardType(.decimalPad)
+                                .multilineTextAlignment(.trailing)
+                                .lineLimit(1)
+                                .focused($budgetFocused)
+                                .accessibilityLabel(Text(AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget")))
                         }
+                        .font(.subheadline)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(12)
+                        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+
                         Button {
                             generate()
                         } label: {
@@ -1104,11 +1129,48 @@ private struct StrategyTab: View {
 
                 if let latestResult {
                     SectionCard(title: AppText.string("strategy.latest", defaultValue: "Latest Comparison")) {
-                        VStack(spacing: 12) {
-                            ForEach(latestResult.simulations.map(\.summary), id: \.strategyType) { summary in
-                                StrategyResultCard(summary: summary, recommended: latestResult.comparisonBatch.recommendedStrategy == summary.strategyType)
+                        VStack(spacing: 14) {
+                            StrategyComparisonTable(
+                                summaries: latestResult.summaries,
+                                recommendedStrategy: hasSavedLatest ? nil : latestResult.comparisonBatch.recommendedStrategy,
+                                selectedStrategy: $selectedStrategy,
+                                isSelectable: hasSavedLatest == false
+                            )
+
+                            if selectedStrategy == nil, hasSavedLatest == false {
+                                InlineNotice(
+                                    style: .info,
+                                    title: AppText.string("strategy.selectTitle", defaultValue: "Select a strategy"),
+                                    message: AppText.string("strategy.selectCopy", defaultValue: "Choose one strategy from the comparison table before saving.")
+                                )
+                            }
+
+                            if hasSavedLatest {
+                                NavigationLink {
+                                    StrategyDetailView(
+                                        batch: latestResult.comparisonBatch,
+                                        simulations: latestResult.simulations.map(\.simulation),
+                                        monthSnapshots: latestResult.simulations.flatMap(\.monthSnapshots),
+                                        allocations: latestResult.simulations.flatMap(\.allocations)
+                                    )
+                                } label: {
+                                    Label(AppText.string("strategy.viewDetail", defaultValue: "View Strategy Details"), systemImage: "doc.text.magnifyingglass")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(SecondaryActionButtonStyle())
+                            } else {
+                                Button {
+                                    saveSelectedStrategy()
+                                } label: {
+                                    Label(AppText.string("strategy.saveSelected", defaultValue: "Save Selected Strategy"), systemImage: "checkmark.circle.fill")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(PrimaryButtonStyle())
+                                .disabled(selectedStrategy == nil)
+                                .opacity(selectedStrategy == nil ? 0.45 : 1)
                             }
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
 
@@ -1124,21 +1186,17 @@ private struct StrategyTab: View {
                     } else {
                         VStack(spacing: 12) {
                             ForEach(Array(batches.sorted { $0.generatedAt > $1.generatedAt }.prefix(10))) { batch in
-                                VStack(alignment: .leading, spacing: 8) {
-                                    HStack {
-                                        Text(AppText.date(batch.generatedAt))
-                                            .font(.headline)
-                                        Spacer()
-                                        StatusChip(title: AppText.string("strategy.assistive", defaultValue: "Simulation"), color: DebtTheme.strategy)
-                                    }
-                                    DetailRow(title: AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"), value: AppText.money(batch.monthlyBudget))
-                                    DetailRow(
-                                        title: AppText.string("strategy.recommended", defaultValue: "Recommended"),
-                                        value: batch.recommendedStrategy.map { strategyTitle($0) } ?? AppText.string("common.none")
+                                NavigationLink {
+                                    StrategyDetailView(
+                                        batch: batch,
+                                        simulations: batchSimulations(for: batch),
+                                        monthSnapshots: monthSnapshots,
+                                        allocations: allocations
                                     )
+                                } label: {
+                                    StrategyHistoryRow(batch: batch)
                                 }
-                                .padding(12)
-                                .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+                                .buttonStyle(.plain)
                             }
                         }
                     }
@@ -1149,126 +1207,697 @@ private struct StrategyTab: View {
                     monthlyBudgetText = plainNumber(settings.monthlyRepaymentBudget)
                 }
             }
-        }
-    }
-
-    private func generate() {
-        do {
-            try subscriptionStore.requireWriteAccess()
-            let budget = decimal(from: monthlyBudgetText)
-            let request = StrategySimulationRequest(
-                monthlyBudget: budget > 0 ? budget : settings.monthlyRepaymentBudget,
-                maxMonths: maxMonths
-            )
-            let result = try StrategySimulationService(modelContext: modelContext).generateComparison(request: request)
-            latestResult = result
-            settings.strategyDataChanged = false
-            settings.updatedAt = Date()
-            try modelContext.save()
-            onResult(.success(()))
-        } catch {
-            onResult(.failure(error))
-        }
-    }
-}
-
-private struct StatisticsTab: View {
-    var summary: AnalyticsSummary
-    var debtItems: [DebtListItem]
-    var paymentRows: [PaymentDisplayRow]
-    var onOpenOverdues: () -> Void
-
-    @State private var period: StatisticsPeriod = .sixMonths
-
-    var body: some View {
-        NavigationStack {
-            AppScroll(title: AppText.string("tab.statistics", defaultValue: "Statistics")) {
-                Picker(AppText.string("statistics.period", defaultValue: "Period"), selection: $period) {
-                    ForEach(StatisticsPeriod.allCases) { period in
-                        Text(period.title).tag(period)
-                    }
-                }
-                .pickerStyle(.segmented)
-
-                ChartCard(
-                    title: AppText.string("statistics.debt", defaultValue: "Debt Statistics"),
-                    explanation: AppText.string("statistics.debtExplain", defaultValue: "This chart shows the remaining amount by debt type.")
-                ) {
-                    Chart(debtMix) { item in
-                        BarMark(
-                            x: .value(AppText.string("field.type", defaultValue: "Type"), item.title),
-                            y: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue)
-                        )
-                        .foregroundStyle(item.color)
-                    }
-                    .chartYAxis(.automatic)
-                }
-
-                ChartCard(
-                    title: AppText.string("statistics.payment", defaultValue: "Payment Statistics"),
-                    explanation: AppText.string("statistics.paymentExplain", defaultValue: "This chart compares recent repayment records by debt type.")
-                ) {
-                    Chart(paymentMix) { item in
-                        BarMark(
-                            x: .value(AppText.string("field.type", defaultValue: "Type"), item.title),
-                            y: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue)
-                        )
-                        .foregroundStyle(item.color)
-                    }
-                }
-
-                ChartCard(
-                    title: AppText.string("statistics.overdue", defaultValue: "Overdue Statistics"),
-                    explanation: AppText.string("statistics.overdueExplain", defaultValue: "Overdue amounts are app-side analysis and may differ from creditor records.")
-                ) {
-                    Chart(overdueBuckets) { item in
-                        BarMark(
-                            x: .value(AppText.string("field.type", defaultValue: "Type"), item.title),
-                            y: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue)
-                        )
-                        .foregroundStyle(item.color)
-                    }
-                }
-
-                SectionCard(
-                    title: AppText.string("statistics.summary", defaultValue: "Summary"),
-                    actionTitle: AppText.string("overview.viewOverdues", defaultValue: "View Overdue"),
-                    action: onOpenOverdues
-                ) {
-                    VStack(spacing: 10) {
-                        DetailRow(title: AppText.string("metric.overallProgress", defaultValue: "Overall Progress"), value: AppText.percent(summary.overallRepaymentProgress))
-                        DetailRow(title: AppText.string("metric.overdueCost", defaultValue: "Overdue Cost"), value: AppText.money(summary.overdueAnalytics.overdueFeeTotalAmount + summary.overdueAnalytics.penaltyInterestTotalAmount))
-                        DetailRow(title: AppText.string("cost.total", defaultValue: "Interest and Fees"), value: AppText.money(summary.costAnalytics.totalCostAmount))
+            .toolbar {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(AppText.string("common.done", defaultValue: "Done")) {
+                        budgetFocused = false
                     }
                 }
             }
         }
     }
 
+    private var hasSavedLatest: Bool {
+        guard let latestResult, let savedBatchID else { return false }
+        return latestResult.comparisonBatch.id == savedBatchID
+    }
+
+    private func generate() {
+        budgetFocused = false
+        do {
+            let budget = decimal(from: monthlyBudgetText)
+            let request = StrategySimulationRequest(
+                monthlyBudget: budget > 0 ? budget : settings.monthlyRepaymentBudget
+            )
+            let result = try StrategySimulationService(modelContext: modelContext).previewComparison(request: request)
+            latestResult = result
+            selectedStrategy = nil
+            savedBatchID = nil
+        } catch {
+            onResult(.failure(error))
+        }
+    }
+
+    private func saveSelectedStrategy() {
+        budgetFocused = false
+        guard let latestResult, let selectedStrategy else { return }
+
+        do {
+            try subscriptionStore.requireWriteAccess()
+            settings.strategyDataChanged = false
+            settings.updatedAt = Date()
+            let savedResult = try StrategySimulationService(modelContext: modelContext).saveComparisonResult(
+                latestResult,
+                selectedStrategy: selectedStrategy
+            )
+            self.latestResult = savedResult
+            savedBatchID = savedResult.comparisonBatch.id
+            onResult(.success(()))
+        } catch {
+            onResult(.failure(error))
+        }
+    }
+
+    private func batchSimulations(for batch: StrategyComparisonBatch) -> [StrategySimulation] {
+        simulations
+            .filter { $0.comparisonBatchID == batch.id }
+            .sorted { $0.strategyType.rawValue < $1.strategyType.rawValue }
+    }
+}
+
+private struct StatisticsTab: View {
+    var creditCards: [CreditCardDebt]
+    var cardStatements: [CreditCardStatement]
+    var cardBreakdowns: [CreditCardStatementBreakdown]
+    var cardPayments: [CreditCardPaymentRecord]
+    var loans: [LoanDebt]
+    var loanPlans: [LoanRepaymentPlan]
+    var loanPayments: [LoanPaymentRecord]
+    var loanOverdues: [LoanOverdueRecord]
+    var personalDebts: [PersonalLendingDebt]
+    var personalPlans: [PersonalLendingPlan]
+    var personalPayments: [PersonalLendingPaymentRecord]
+    var personalOverdues: [PersonalLendingOverdueRecord]
+    var onOpenOverdues: () -> Void
+
+    @State private var period: StatisticsPeriod = .sixMonths
+    @State private var category: StatisticsCategory = .overview
+
+    private let calendar = Calendar(identifier: .gregorian)
+
+    var body: some View {
+        NavigationStack {
+            AppScroll(title: AppText.string("tab.statistics", defaultValue: "Statistics")) {
+                StatisticsControlPanel(period: $period, category: $category)
+                categoryContent
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var categoryContent: some View {
+        switch category {
+        case .overview:
+            overviewContent
+        case .debtStructure:
+            debtStructureContent
+        case .paymentAnalysis:
+            paymentAnalysisContent
+        case .overdueRisk:
+            overdueRiskContent
+        case .cost:
+            costContent
+        case .focus:
+            focusContent
+        }
+    }
+
+    @ViewBuilder
+    private var overviewContent: some View {
+        let summary = periodSummary
+        HeroAmountCard(
+            title: AppText.string("metric.totalRemaining", defaultValue: "Total Remaining"),
+            amount: summary.debtAnalytics.totalRemainingAmount,
+            progress: summary.overallRepaymentProgress,
+            caption: AppText.string("statistics.overviewCaption", defaultValue: "Current remaining balance with progress based on recorded repayments.")
+        )
+
+        StatisticsMetricGrid(metrics: [
+            StatisticsMetric(
+                title: AppText.string("statistics.periodPlanned", defaultValue: "Planned in Period"),
+                value: AppText.money(summary.debtAnalytics.currentMonthPlannedRepaymentAmount),
+                caption: period.title,
+                icon: "calendar.badge.clock",
+                color: DebtTheme.primary
+            ),
+            StatisticsMetric(
+                title: AppText.string("statistics.periodPaid", defaultValue: "Paid in Period"),
+                value: AppText.money(summary.paymentAnalytics.currentMonthPaidAmount),
+                caption: "\(summary.paymentAnalytics.currentMonthPaymentRecordCount + summary.paymentAnalytics.currentMonthPaymentInputCount) " + AppText.string("payments.count", defaultValue: "Records"),
+                icon: "checkmark.circle.fill",
+                color: DebtTheme.success
+            ),
+            StatisticsMetric(
+                title: AppText.string("statistics.currentRisk", defaultValue: "Current Risk"),
+                value: overdueRiskTitle(summary.overdueAnalytics.riskLevel),
+                caption: "\(summary.overdueAnalytics.currentOverduePeriodCount) " + AppText.string("metric.overduePeriodCount", defaultValue: "Overdue Periods"),
+                icon: "exclamationmark.triangle.fill",
+                color: overdueRiskColor(summary.overdueAnalytics.riskLevel)
+            ),
+            StatisticsMetric(
+                title: AppText.string("cost.total", defaultValue: "Interest and Fees"),
+                value: AppText.money(summary.costAnalytics.totalCostAmount),
+                caption: AppText.string("statistics.currentCostCaption", defaultValue: "Current app-side estimate"),
+                icon: "banknote.fill",
+                color: DebtTheme.warning
+            )
+        ])
+
+        SectionCard(title: AppText.string("statistics.progress", defaultValue: "Progress")) {
+            VStack(spacing: 12) {
+                ProgressStatRow(
+                    title: AppText.string("metric.overallProgress", defaultValue: "Overall Progress"),
+                    value: summary.overallRepaymentProgress,
+                    color: DebtTheme.primary
+                )
+                ProgressStatRow(
+                    title: AppText.string("statistics.fixedDebtProgress", defaultValue: "Fixed Debt Progress"),
+                    value: summary.fixedDebtProgress,
+                    color: DebtTheme.strategy
+                )
+                ProgressStatRow(
+                    title: AppText.string("statistics.statementProgress", defaultValue: "Credit Card Statement Progress"),
+                    value: summary.creditCardCurrentStatementProgress,
+                    color: DebtTheme.success
+                )
+                DetailRow(title: AppText.string("statistics.generatedAt", defaultValue: "Generated"), value: AppText.date(summary.generatedAt))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var debtStructureContent: some View {
+        let summary = periodSummary
+        let total = chartTotal(debtMix)
+
+        ChartCard(
+            title: AppText.string("statistics.debtStructure", defaultValue: "Debt Structure"),
+            explanation: AppText.string("statistics.debtStructureExplain", defaultValue: "Current remaining balance by debt type."),
+            isEmpty: debtMix.isEmpty
+        ) {
+            Chart(debtMix) { item in
+                SectorMark(
+                    angle: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue),
+                    innerRadius: .ratio(0.58),
+                    angularInset: 1.2
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        SectionCard(title: AppText.string("statistics.typeBreakdown", defaultValue: "Type Breakdown")) {
+            VStack(spacing: 10) {
+                ForEach(debtMix) { item in
+                    LegendAmountRow(item: item, total: total)
+                }
+                if debtMix.isEmpty {
+                    EmptyChartState(title: AppText.string("statistics.emptyDebt", defaultValue: "No debt balance to chart."))
+                }
+            }
+        }
+
+        StatisticsMetricGrid(metrics: [
+            StatisticsMetric(title: AppText.string("statistics.fixedDebt", defaultValue: "Fixed Debt"), value: AppText.money(summary.debtAnalytics.fixedDebtAmount), caption: AppText.percent(AnalyticsSupport.ratio(summary.debtAnalytics.fixedDebtAmount, summary.debtAnalytics.totalRemainingAmount)), icon: "building.columns.fill", color: DebtTheme.strategy),
+            StatisticsMetric(title: AppText.string("statistics.revolvingDebt", defaultValue: "Revolving Debt"), value: AppText.money(summary.debtAnalytics.revolvingDebtAmount), caption: AppText.percent(AnalyticsSupport.ratio(summary.debtAnalytics.revolvingDebtAmount, summary.debtAnalytics.totalRemainingAmount)), icon: "creditcard.fill", color: DebtTheme.primary),
+            StatisticsMetric(title: AppText.string("statistics.unpaidDebts", defaultValue: "Unpaid Debts"), value: "\(summary.debtAnalytics.unpaidDebtCount)", caption: "\(summary.debtAnalytics.totalDebtCount) " + AppText.string("statistics.totalDebts", defaultValue: "Total Debts"), icon: "list.bullet.rectangle.fill", color: DebtTheme.neutral),
+            StatisticsMetric(title: AppText.string("statistics.paidOffDebts", defaultValue: "Paid Off Debts"), value: "\(summary.debtAnalytics.paidOffDebtCount)", caption: AppText.string("debtStatus.paidOff", defaultValue: "Paid off"), icon: "checkmark.seal.fill", color: DebtTheme.success)
+        ])
+
+        if let maxDebt = summary.debtAnalytics.maxSingleDebt {
+            SectionCard(title: AppText.string("statistics.maxSingleDebt", defaultValue: "Largest Single Debt")) {
+                RankAmountRow(
+                    title: maxDebt.name,
+                    subtitle: AppText.debtType(maxDebt.debtType),
+                    amount: maxDebt.amount,
+                    color: typeColor(maxDebt.debtType)
+                )
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var paymentAnalysisContent: some View {
+        let summary = periodSummary
+        let periodRows = currentPaymentRows
+        let total = chartTotal(paymentMix)
+
+        StatisticsMetricGrid(metrics: [
+            StatisticsMetric(title: AppText.string("statistics.periodPaid", defaultValue: "Paid in Period"), value: AppText.money(summary.paymentAnalytics.currentMonthPaidAmount), caption: period.title, icon: "checkmark.circle.fill", color: DebtTheme.success),
+            StatisticsMetric(title: AppText.string("statistics.cumulativePaid", defaultValue: "Cumulative Paid"), value: AppText.money(summary.paymentAnalytics.cumulativePaidAmount), caption: AppText.string("statistics.allTime", defaultValue: "All time"), icon: "sum", color: DebtTheme.primary),
+            StatisticsMetric(title: AppText.string("payments.count", defaultValue: "Records"), value: "\(summary.paymentAnalytics.currentMonthPaymentRecordCount + summary.paymentAnalytics.currentMonthPaymentInputCount)", caption: AppText.string("statistics.selectedPeriod", defaultValue: "Selected period"), icon: "number.circle.fill", color: DebtTheme.strategy),
+            StatisticsMetric(title: AppText.string("statistics.latestPayment", defaultValue: "Latest Payment"), value: periodRows.first.map { AppText.money($0.amount) } ?? AppText.string("common.none"), caption: periodRows.first?.name ?? AppText.string("empty.noPayments", defaultValue: "No payments"), icon: "clock.arrow.circlepath", color: DebtTheme.warning)
+        ])
+
+        ChartCard(
+            title: AppText.string("statistics.paymentByType", defaultValue: "Payment by Type"),
+            explanation: AppText.string("statistics.paymentByTypeExplain", defaultValue: "Repayments recorded in the selected period."),
+            isEmpty: paymentMix.isEmpty
+        ) {
+            Chart(paymentMix) { item in
+                BarMark(
+                    x: .value(AppText.string("field.type", defaultValue: "Type"), item.title),
+                    y: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue)
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        ChartCard(
+            title: AppText.string("statistics.paymentTrend", defaultValue: "Payment Trend"),
+            explanation: AppText.string("statistics.paymentTrendExplain", defaultValue: "Monthly repayments in the selected range."),
+            isEmpty: monthlyPaymentTrend.allSatisfy { $0.amount <= 0 }
+        ) {
+            Chart(monthlyPaymentTrend) { point in
+                AreaMark(
+                    x: .value(AppText.string("statistics.month", defaultValue: "Month"), point.monthStart, unit: .month),
+                    y: .value(AppText.string("field.amount", defaultValue: "Amount"), point.amount.doubleValue)
+                )
+                .foregroundStyle(DebtTheme.primary.opacity(0.18))
+                LineMark(
+                    x: .value(AppText.string("statistics.month", defaultValue: "Month"), point.monthStart, unit: .month),
+                    y: .value(AppText.string("field.amount", defaultValue: "Amount"), point.amount.doubleValue)
+                )
+                .foregroundStyle(DebtTheme.primary)
+                .interpolationMethod(.catmullRom)
+                PointMark(
+                    x: .value(AppText.string("statistics.month", defaultValue: "Month"), point.monthStart, unit: .month),
+                    y: .value(AppText.string("field.amount", defaultValue: "Amount"), point.amount.doubleValue)
+                )
+                .foregroundStyle(DebtTheme.primary)
+            }
+        }
+
+        SectionCard(title: AppText.string("statistics.paymentBreakdown", defaultValue: "Payment Breakdown")) {
+            VStack(spacing: 10) {
+                ForEach(paymentMix) { item in
+                    LegendAmountRow(item: item, total: total)
+                }
+                Divider()
+                DetailRow(title: AppText.debtType(.creditCard), value: AppText.money(summary.paymentAnalytics.creditCardCumulativePaidAmount))
+                DetailRow(title: AppText.debtType(.loan), value: AppText.money(summary.paymentAnalytics.loanCumulativePaidAmount))
+                DetailRow(title: AppText.debtType(.personalLending), value: AppText.money(summary.paymentAnalytics.personalLendingCumulativePaidAmount))
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var overdueRiskContent: some View {
+        let summary = periodSummary
+
+        StatisticsMetricGrid(metrics: [
+            StatisticsMetric(title: AppText.string("statistics.riskLevel", defaultValue: "Risk Level"), value: overdueRiskTitle(summary.overdueAnalytics.riskLevel), caption: AppText.string("statistics.currentState", defaultValue: "Current state"), icon: "exclamationmark.triangle.fill", color: overdueRiskColor(summary.overdueAnalytics.riskLevel)),
+            StatisticsMetric(title: AppText.string("metric.overdueAmount", defaultValue: "Overdue Amount"), value: AppText.money(summary.overdueAnalytics.currentOverdueTotalAmount), caption: "\(summary.overdueAnalytics.currentOverdueDebtCount) " + AppText.string("metric.overdueDebtCount", defaultValue: "Overdue Debts"), icon: "calendar.badge.exclamationmark", color: DebtTheme.danger),
+            StatisticsMetric(title: AppText.string("statistics.minimumGap", defaultValue: "Minimum Gap"), value: AppText.money(summary.overdueAnalytics.creditCardMinimumPaymentGap), caption: AppText.debtType(.creditCard), icon: "creditcard.trianglebadge.exclamationmark", color: DebtTheme.warning),
+            StatisticsMetric(title: AppText.string("metric.overdueCost", defaultValue: "Overdue Cost"), value: AppText.money(summary.overdueAnalytics.overdueFeeTotalAmount + summary.overdueAnalytics.penaltyInterestTotalAmount), caption: AppText.string("statistics.feesAndPenalty", defaultValue: "Fees and penalty interest"), icon: "banknote.fill", color: DebtTheme.danger)
+        ])
+
+        ChartCard(
+            title: AppText.string("statistics.overdueAging", defaultValue: "Overdue Aging"),
+            explanation: AppText.string("statistics.overdueExplain", defaultValue: "Overdue amounts are app-side analysis and may differ from creditor records."),
+            isEmpty: overdueBuckets.isEmpty
+        ) {
+            Chart(overdueBuckets) { item in
+                BarMark(
+                    x: .value(AppText.string("statistics.bucket", defaultValue: "Bucket"), item.title),
+                    y: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue)
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        ChartCard(
+            title: AppText.string("statistics.overdueByType", defaultValue: "Overdue by Type"),
+            explanation: AppText.string("statistics.overdueByTypeExplain", defaultValue: "Current overdue amount split by debt type."),
+            isEmpty: overdueTypeMix.isEmpty
+        ) {
+            Chart(overdueTypeMix) { item in
+                SectorMark(
+                    angle: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue),
+                    innerRadius: .ratio(0.56),
+                    angularInset: 1.2
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        SectionCard(
+            title: AppText.string("statistics.riskItems", defaultValue: "Risk Items"),
+            actionTitle: summary.overdueAnalytics.items.isEmpty ? nil : AppText.string("overview.viewOverdues", defaultValue: "View Overdue"),
+            action: onOpenOverdues
+        ) {
+            if summary.overdueAnalytics.items.isEmpty {
+                EmptyChartState(title: AppText.string("overdue.emptyCopy", defaultValue: "No current overdue items were found in app records."))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(sortedOverdueItems.prefix(6)) { item in
+                        RankAmountRow(
+                            title: item.debtName,
+                            subtitle: AppText.debtType(item.debtType) + " · " + String(format: AppText.string("format.overdueDays", defaultValue: "%d days overdue"), item.overdueDays),
+                            amount: item.overdueAmount,
+                            color: typeColor(item.debtType)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var costContent: some View {
+        let summary = periodSummary
+
+        StatisticsMetricGrid(metrics: [
+            StatisticsMetric(title: AppText.string("cost.total", defaultValue: "Interest and Fees"), value: AppText.money(summary.costAnalytics.totalCostAmount), caption: AppText.string("statistics.currentCostCaption", defaultValue: "Current app-side estimate"), icon: "banknote.fill", color: DebtTheme.warning),
+            StatisticsMetric(title: AppText.string("statistics.totalInterest", defaultValue: "Interest"), value: AppText.money(summary.costAnalytics.totalInterestAmount), caption: AppText.string("statistics.allSources", defaultValue: "All sources"), icon: "percent", color: DebtTheme.primary),
+            StatisticsMetric(title: AppText.string("statistics.overdueFee", defaultValue: "Overdue Fee"), value: AppText.money(summary.costAnalytics.totalOverdueFeeAmount), caption: AppText.string("field.overdueFee", defaultValue: "Overdue Fee"), icon: "exclamationmark.triangle.fill", color: DebtTheme.danger),
+            StatisticsMetric(title: AppText.string("statistics.penaltyInterest", defaultValue: "Penalty Interest"), value: AppText.money(summary.costAnalytics.totalPenaltyInterestAmount), caption: AppText.string("statistics.penaltyCaption", defaultValue: "Late-payment interest"), icon: "bolt.trianglebadge.exclamationmark.fill", color: DebtTheme.strategy)
+        ])
+
+        ChartCard(
+            title: AppText.string("statistics.costComposition", defaultValue: "Cost Composition"),
+            explanation: AppText.string("statistics.costCompositionExplain", defaultValue: "Interest, fees and penalties from app-side records."),
+            isEmpty: costComposition.isEmpty
+        ) {
+            Chart(costComposition) { item in
+                SectorMark(
+                    angle: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue),
+                    innerRadius: .ratio(0.58),
+                    angularInset: 1.2
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        ChartCard(
+            title: AppText.string("statistics.costByType", defaultValue: "Cost by Debt Type"),
+            explanation: AppText.string("statistics.costByTypeExplain", defaultValue: "Current cost estimate grouped by debt type."),
+            isEmpty: costTypeMix.isEmpty
+        ) {
+            Chart(costTypeMix) { item in
+                BarMark(
+                    x: .value(AppText.string("field.type", defaultValue: "Type"), item.title),
+                    y: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue)
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        ChartCard(
+            title: AppText.string("statistics.costSource", defaultValue: "Cost Source"),
+            explanation: AppText.string("statistics.costSourceExplain", defaultValue: "Where the cost estimate came from."),
+            isEmpty: costSourceMix.isEmpty
+        ) {
+            Chart(costSourceMix) { item in
+                SectorMark(
+                    angle: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue),
+                    innerRadius: .ratio(0.58),
+                    angularInset: 1.2
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        SectionCard(title: AppText.string("statistics.highCostDebts", defaultValue: "High-Cost Debts")) {
+            if summary.costAnalytics.highCostDebts.isEmpty {
+                EmptyChartState(title: AppText.string("statistics.emptyCost", defaultValue: "No cost data to chart."))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(summary.costAnalytics.highCostDebts.prefix(6)) { item in
+                        RankAmountRow(
+                            title: item.debtName,
+                            subtitle: AppText.debtType(item.debtType) + " · " + costSourceTitle(item.primarySource),
+                            amount: item.costAmount,
+                            color: typeColor(item.debtType)
+                        )
+                    }
+                    Divider()
+                    DetailRow(title: AppText.string("statistics.installmentFee", defaultValue: "Installment Fee"), value: AppText.money(summary.costAnalytics.totalInstallmentFeeAmount))
+                    DetailRow(title: AppText.string("statistics.otherFee", defaultValue: "Other Fee"), value: AppText.money(summary.costAnalytics.otherFeeAmount))
+                    DetailRow(title: AppText.string("statistics.paidLoanInterest", defaultValue: "Paid Loan Interest"), value: AppText.money(summary.costAnalytics.loanAppAllocatedPaidInterestAmount))
+                    DetailRow(title: AppText.string("statistics.breakdownConflicts", defaultValue: "Breakdown Conflicts"), value: "\(summary.costAnalytics.creditCardBreakdownConflictCount)")
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var focusContent: some View {
+        let summary = periodSummary
+
+        ChartCard(
+            title: AppText.string("statistics.focusRanking", defaultValue: "Focus Ranking"),
+            explanation: AppText.string("statistics.focusRankingExplain", defaultValue: "Largest balance, cost, risk and recent payment signals."),
+            isEmpty: focusItems.isEmpty
+        ) {
+            Chart(focusItems) { item in
+                BarMark(
+                    x: .value(AppText.string("field.amount", defaultValue: "Amount"), item.amount.doubleValue),
+                    y: .value(AppText.string("statistics.item", defaultValue: "Item"), item.title)
+                )
+                .foregroundStyle(item.color)
+            }
+        }
+
+        SectionCard(title: AppText.string("statistics.focus", defaultValue: "Focus")) {
+            if focusItems.isEmpty {
+                EmptyChartState(title: AppText.string("statistics.emptyFocus", defaultValue: "No focus items yet."))
+            } else {
+                VStack(spacing: 10) {
+                    ForEach(focusItems) { item in
+                        RankAmountRow(title: item.title, subtitle: item.subtitle ?? "", amount: item.amount, color: item.color)
+                    }
+                }
+            }
+        }
+
+        StatisticsMetricGrid(metrics: [
+            StatisticsMetric(title: AppText.string("statistics.maxSingleDebt", defaultValue: "Largest Single Debt"), value: summary.debtAnalytics.maxSingleDebt.map { AppText.money($0.amount) } ?? AppText.string("common.none"), caption: summary.debtAnalytics.maxSingleDebt?.name ?? AppText.string("statistics.emptyDebt", defaultValue: "No debt balance to chart."), icon: "arrow.up.forward.circle.fill", color: DebtTheme.primary),
+            StatisticsMetric(title: AppText.string("statistics.highestCost", defaultValue: "Highest Cost"), value: summary.costAnalytics.highCostDebts.first.map { AppText.money($0.costAmount) } ?? AppText.string("common.none"), caption: summary.costAnalytics.highCostDebts.first?.debtName ?? AppText.string("statistics.emptyCost", defaultValue: "No cost data to chart."), icon: "banknote.fill", color: DebtTheme.warning),
+            StatisticsMetric(title: AppText.string("statistics.highestRisk", defaultValue: "Highest Risk"), value: summary.overdueAnalytics.highestRiskItem.map { AppText.money($0.overdueAmount) } ?? AppText.string("common.none"), caption: summary.overdueAnalytics.highestRiskItem?.debtName ?? AppText.string("overdue.emptyCopy", defaultValue: "No current overdue items were found in app records."), icon: "exclamationmark.triangle.fill", color: overdueRiskColor(summary.overdueAnalytics.riskLevel)),
+            StatisticsMetric(title: AppText.string("statistics.recentPaymentTarget", defaultValue: "Recent Payment Target"), value: currentPaymentRows.first.map { AppText.money($0.amount) } ?? AppText.string("common.none"), caption: currentPaymentRows.first?.name ?? AppText.string("empty.noPayments", defaultValue: "No payments"), icon: "clock.arrow.circlepath", color: DebtTheme.success)
+        ])
+    }
+
+    private var selectedAnalyticsPeriod: AnalyticsPeriod {
+        period.analyticsPeriod(containing: Date(), calendar: calendar)
+    }
+
+    private var periodSummary: AnalyticsSummary {
+        let analyticsPeriod = selectedAnalyticsPeriod
+        let debtAnalytics = DebtAnalyticsService(calendar: calendar).generate(
+            creditCardDebts: creditCards,
+            creditCardStatements: cardStatements,
+            loanDebts: loans,
+            loanPlans: loanPlans,
+            personalLendingDebts: personalDebts,
+            personalLendingPlans: personalPlans,
+            period: analyticsPeriod
+        )
+        let paymentAnalytics = PaymentAnalyticsService().generate(
+            creditCardDebts: creditCards,
+            creditCardPayments: cardPayments,
+            loanDebts: loans,
+            loanPayments: loanPayments,
+            personalLendingDebts: personalDebts,
+            personalLendingPayments: personalPayments,
+            period: analyticsPeriod
+        )
+        let overdueAnalytics = OverdueAnalyticsService(datePolicy: DateCalculationPolicy(calendar: calendar)).generate(
+            creditCardDebts: creditCards,
+            creditCardStatements: cardStatements,
+            creditCardBreakdowns: cardBreakdowns,
+            loanDebts: loans,
+            loanPlans: loanPlans,
+            loanOverdues: loanOverdues,
+            personalLendingDebts: personalDebts,
+            personalLendingPlans: personalPlans,
+            personalLendingOverdues: personalOverdues,
+            today: Date()
+        )
+        let costAnalytics = CostAnalyticsService().generate(
+            creditCardDebts: creditCards,
+            creditCardStatements: cardStatements,
+            creditCardBreakdowns: cardBreakdowns,
+            loanDebts: loans,
+            loanPlans: loanPlans,
+            loanOverdues: loanOverdues,
+            personalLendingDebts: personalDebts,
+            personalLendingPlans: personalPlans
+        )
+        let fixedPaidAmount = paymentAnalytics.loanCumulativePaidAmount + paymentAnalytics.personalLendingCumulativePaidAmount
+        return AnalyticsSummary(
+            debtAnalytics: debtAnalytics,
+            paymentAnalytics: paymentAnalytics,
+            overdueAnalytics: overdueAnalytics,
+            costAnalytics: costAnalytics,
+            overallRepaymentProgress: AnalyticsSupport.ratio(
+                paymentAnalytics.cumulativePaidAmount,
+                paymentAnalytics.cumulativePaidAmount + debtAnalytics.totalRemainingAmount
+            ),
+            fixedDebtProgress: AnalyticsSupport.ratio(
+                fixedPaidAmount,
+                fixedPaidAmount + debtAnalytics.fixedDebtAmount
+            ),
+            creditCardCurrentStatementProgress: AnalyticsSupport.ratio(
+                debtAnalytics.creditCardCurrentStatementPaidAmount,
+                debtAnalytics.creditCardCurrentStatementAmount
+            ),
+            generatedAt: Date()
+        )
+    }
+
+    private var paymentRows: [PaymentDisplayRow] {
+        makePaymentRows(
+            creditCards: AnalyticsSupport.activeCreditCardDebts(creditCards),
+            loans: AnalyticsSupport.activeLoanDebts(loans),
+            personalDebts: AnalyticsSupport.activePersonalLendingDebts(personalDebts),
+            cardPayments: cardPayments,
+            loanPayments: loanPayments,
+            personalPayments: personalPayments
+        )
+    }
+
+    private var currentPaymentRows: [PaymentDisplayRow] {
+        let analyticsPeriod = selectedAnalyticsPeriod
+        return paymentRows.filter { analyticsPeriod.contains($0.date) }
+    }
+
     private var debtMix: [ChartAmount] {
-        [
+        let summary = periodSummary
+        return [
             ChartAmount(title: AppText.debtType(.creditCard), amount: summary.debtAnalytics.creditCardRemainingAmount, color: DebtTheme.primary),
             ChartAmount(title: AppText.debtType(.loan), amount: summary.debtAnalytics.loanRemainingAmount, color: DebtTheme.strategy),
             ChartAmount(title: AppText.debtType(.personalLending), amount: summary.debtAnalytics.personalLendingRemainingAmount, color: DebtTheme.success)
         ]
+        .positiveAmounts
     }
 
     private var paymentMix: [ChartAmount] {
-        let start = period.startDate
-        let rows = paymentRows.filter { $0.date >= start }
+        let rows = currentPaymentRows
         return [
             ChartAmount(title: AppText.debtType(.creditCard), amount: rows.filter { $0.type == .creditCard }.reduce(Decimal(0)) { $0 + $1.amount }, color: DebtTheme.primary),
             ChartAmount(title: AppText.debtType(.loan), amount: rows.filter { $0.type == .loan }.reduce(Decimal(0)) { $0 + $1.amount }, color: DebtTheme.strategy),
             ChartAmount(title: AppText.debtType(.personalLending), amount: rows.filter { $0.type == .personalLending }.reduce(Decimal(0)) { $0 + $1.amount }, color: DebtTheme.success)
         ]
+        .positiveAmounts
     }
 
     private var overdueBuckets: [ChartAmount] {
-        [
+        let summary = periodSummary
+        return [
             ChartAmount(title: "1-30", amount: summary.overdueAnalytics.overdueAmount1To30Days, color: DebtTheme.warning),
             ChartAmount(title: "31-90", amount: summary.overdueAnalytics.overdueAmount31To90Days, color: DebtTheme.danger.opacity(0.82)),
             ChartAmount(title: "90+", amount: summary.overdueAnalytics.overdueAmountOver90Days, color: DebtTheme.danger)
         ]
+        .positiveAmounts
+    }
+
+    private var overdueTypeMix: [ChartAmount] {
+        let summary = periodSummary
+        return [
+            ChartAmount(title: AppText.debtType(.creditCard), amount: summary.overdueAnalytics.creditCardOverdueStatementRemainingAmount, color: DebtTheme.primary),
+            ChartAmount(title: AppText.debtType(.loan), amount: summary.overdueAnalytics.loanOverdueAmount, color: DebtTheme.strategy),
+            ChartAmount(title: AppText.debtType(.personalLending), amount: summary.overdueAnalytics.personalLendingPastDueAmount, color: DebtTheme.success)
+        ]
+        .positiveAmounts
+    }
+
+    private var costComposition: [ChartAmount] {
+        let cost = periodSummary.costAnalytics
+        return [
+            ChartAmount(title: AppText.string("statistics.totalInterest", defaultValue: "Interest"), amount: cost.totalInterestAmount, color: DebtTheme.primary),
+            ChartAmount(title: AppText.string("statistics.installmentFee", defaultValue: "Installment Fee"), amount: cost.totalInstallmentFeeAmount, color: DebtTheme.strategy),
+            ChartAmount(title: AppText.string("statistics.overdueFee", defaultValue: "Overdue Fee"), amount: cost.totalOverdueFeeAmount, color: DebtTheme.warning),
+            ChartAmount(title: AppText.string("statistics.penaltyInterest", defaultValue: "Penalty Interest"), amount: cost.totalPenaltyInterestAmount, color: DebtTheme.danger),
+            ChartAmount(title: AppText.string("statistics.otherFee", defaultValue: "Other Fee"), amount: cost.otherFeeAmount, color: DebtTheme.neutral)
+        ]
+        .positiveAmounts
+    }
+
+    private var costTypeMix: [ChartAmount] {
+        let cost = periodSummary.costAnalytics
+        return [
+            ChartAmount(title: AppText.debtType(.creditCard), amount: cost.creditCardCostAmount, color: DebtTheme.primary),
+            ChartAmount(title: AppText.debtType(.loan), amount: cost.loanCostAmount, color: DebtTheme.strategy),
+            ChartAmount(title: AppText.debtType(.personalLending), amount: cost.personalLendingInterestAmount, color: DebtTheme.success)
+        ]
+        .positiveAmounts
+    }
+
+    private var costSourceMix: [ChartAmount] {
+        let amounts = periodSummary.costAnalytics.sourceAmounts
+        return [
+            ChartAmount(title: costSourceTitle(.userProvided), amount: amounts.userProvidedCostAmount, color: DebtTheme.primary),
+            ChartAmount(title: costSourceTitle(.systemFallback), amount: amounts.fallbackCostAmount, color: DebtTheme.fallback),
+            ChartAmount(title: costSourceTitle(.scheduledPlan), amount: amounts.scheduledPlanCostAmount, color: DebtTheme.strategy),
+            ChartAmount(title: costSourceTitle(.mixed), amount: amounts.mixedCostAmount, color: DebtTheme.warning),
+            ChartAmount(title: costSourceTitle(.none), amount: amounts.noneCostAmount, color: DebtTheme.neutral)
+        ]
+        .positiveAmounts
+    }
+
+    private var monthlyPaymentTrend: [MonthlyPaymentPoint] {
+        let analyticsPeriod = selectedAnalyticsPeriod
+        let rows = currentPaymentRows
+        let grouped = Dictionary(grouping: rows) { row -> Date in
+            let components = calendar.dateComponents([.year, .month], from: row.date)
+            return calendar.date(from: DateComponents(year: components.year, month: components.month, day: 1)) ?? row.date
+        }
+        var points: [MonthlyPaymentPoint] = []
+        var cursor = analyticsPeriod.periodStart
+        while cursor < analyticsPeriod.periodEndExclusive {
+            let amount = grouped[cursor]?.reduce(Decimal(0)) { $0 + $1.amount } ?? 0
+            points.append(MonthlyPaymentPoint(monthStart: cursor, amount: amount))
+            cursor = calendar.date(byAdding: .month, value: 1, to: cursor) ?? analyticsPeriod.periodEndExclusive
+        }
+        return points
+    }
+
+    private var sortedOverdueItems: [AnalyticsOverdueItem] {
+        periodSummary.overdueAnalytics.items.sorted {
+            if $0.overdueDays == $1.overdueDays {
+                if $0.overdueAmount == $1.overdueAmount { return $0.debtName < $1.debtName }
+                return $0.overdueAmount > $1.overdueAmount
+            }
+            return $0.overdueDays > $1.overdueDays
+        }
+    }
+
+    private var focusItems: [FocusChartAmount] {
+        let summary = periodSummary
+        var items: [FocusChartAmount] = []
+        if let maxDebt = summary.debtAnalytics.maxSingleDebt {
+            items.append(
+                FocusChartAmount(
+                    title: AppText.string("statistics.maxSingleDebt", defaultValue: "Largest Single Debt"),
+                    subtitle: maxDebt.name,
+                    amount: maxDebt.amount,
+                    color: typeColor(maxDebt.debtType)
+                )
+            )
+        }
+        if let highCost = summary.costAnalytics.highCostDebts.first {
+            items.append(
+                FocusChartAmount(
+                    title: AppText.string("statistics.highestCost", defaultValue: "Highest Cost"),
+                    subtitle: highCost.debtName,
+                    amount: highCost.costAmount,
+                    color: typeColor(highCost.debtType)
+                )
+            )
+        }
+        if let risk = summary.overdueAnalytics.highestRiskItem {
+            items.append(
+                FocusChartAmount(
+                    title: AppText.string("statistics.highestRisk", defaultValue: "Highest Risk"),
+                    subtitle: risk.debtName,
+                    amount: risk.overdueAmount,
+                    color: DebtTheme.danger
+                )
+            )
+        }
+        if let recent = currentPaymentRows.first {
+            items.append(
+                FocusChartAmount(
+                    title: AppText.string("statistics.recentPaymentTarget", defaultValue: "Recent Payment Target"),
+                    subtitle: recent.name,
+                    amount: recent.amount,
+                    color: typeColor(recent.type)
+                )
+            )
+        }
+        return items.filter { $0.amount > 0 }
     }
 }
 
@@ -1289,8 +1918,11 @@ private struct SettingsView: View {
         NavigationStack {
             Form {
                 Section(AppText.string("settings.budget", defaultValue: "Budget")) {
-                    TextField(AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"), text: $budgetText)
-                        .keyboardType(.decimalPad)
+                    FormTextInputRow(
+                        title: AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"),
+                        text: $budgetText,
+                        keyboardType: .decimalPad
+                    )
                     Button(AppText.string("common.save", defaultValue: "Save")) {
                         settings.monthlyRepaymentBudget = decimal(from: budgetText)
                         settings.updatedAt = Date()
@@ -1330,14 +1962,17 @@ private struct SettingsView: View {
 
                 Section(AppText.string("settings.privacy", defaultValue: "Privacy")) {
                     Label(AppText.string("settings.localOnly", defaultValue: "Data is stored locally on this device."), systemImage: "hand.raised.fill")
-                    Toggle(AppText.string("settings.reminders", defaultValue: "Payment Reminders"), isOn: Binding(
-                        get: { settings.remindersEnabled },
-                        set: {
-                            settings.remindersEnabled = $0
-                            settings.updatedAt = Date()
-                            try? modelContext.save()
-                        }
-                    ))
+                    FormToggleRow(
+                        title: AppText.string("settings.reminders", defaultValue: "Payment Reminders"),
+                        isOn: Binding(
+                            get: { settings.remindersEnabled },
+                            set: {
+                                settings.remindersEnabled = $0
+                                settings.updatedAt = Date()
+                                try? modelContext.save()
+                            }
+                        )
+                    )
                 }
 
                 Section(AppText.string("settings.data", defaultValue: "Data")) {
@@ -1480,32 +2115,56 @@ private struct CreditCardRuleEditor: View {
     var body: some View {
         Form {
             Section(AppText.string("rules.minimumPayment", defaultValue: "Minimum Payment")) {
-                TextField(AppText.string("rules.minimumPaymentRatio", defaultValue: "Minimum payment ratio (%)"), text: $minimumPaymentRatioText)
-                    .keyboardType(.decimalPad)
-                TextField(AppText.string("rules.minimumPaymentFloor", defaultValue: "Minimum payment floor"), text: $minimumPaymentFloorText)
-                    .keyboardType(.decimalPad)
+                FormTextInputRow(
+                    title: AppText.string("rules.minimumPaymentRatio", defaultValue: "Minimum payment ratio (%)"),
+                    text: $minimumPaymentRatioText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("rules.minimumPaymentFloor", defaultValue: "Minimum payment floor"),
+                    text: $minimumPaymentFloorText,
+                    keyboardType: .decimalPad
+                )
             }
 
             Section(AppText.string("rules.revolvingInterest", defaultValue: "Revolving Interest")) {
-                Toggle(AppText.string("rules.revolvingEnabled", defaultValue: "Enable revolving interest"), isOn: $revolvingInterestEnabled)
-                TextField(AppText.string("rules.dailyRatePercent", defaultValue: "Daily rate (%)"), text: $revolvingDailyRateText)
-                    .keyboardType(.decimalPad)
+                FormToggleRow(
+                    title: AppText.string("rules.revolvingEnabled", defaultValue: "Enable revolving interest"),
+                    isOn: $revolvingInterestEnabled
+                )
+                FormTextInputRow(
+                    title: AppText.string("rules.dailyRatePercent", defaultValue: "Daily rate (%)"),
+                    text: $revolvingDailyRateText,
+                    keyboardType: .decimalPad
+                )
             }
 
             Section(AppText.string("rules.overduePenalty", defaultValue: "Overdue Penalty")) {
-                TextField(AppText.string("rules.overdueFeeRate", defaultValue: "Overdue fee rate (%)"), text: $overdueFeeRateText)
-                    .keyboardType(.decimalPad)
-                TextField(AppText.string("rules.minimumOverdueFee", defaultValue: "Minimum overdue fee"), text: $minimumOverdueFeeText)
-                    .keyboardType(.decimalPad)
-                TextField(AppText.string("rules.fixedOverdueFeeOptional", defaultValue: "Fixed overdue fee, optional"), text: $fixedOverdueFeeText)
-                    .keyboardType(.decimalPad)
-                Picker(AppText.string("rules.penaltyBase", defaultValue: "Penalty base"), selection: $penaltyBaseType) {
+                FormTextInputRow(
+                    title: AppText.string("rules.overdueFeeRate", defaultValue: "Overdue fee rate (%)"),
+                    text: $overdueFeeRateText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("rules.minimumOverdueFee", defaultValue: "Minimum overdue fee"),
+                    text: $minimumOverdueFeeText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("rules.fixedOverdueFeeOptional", defaultValue: "Fixed overdue fee, optional"),
+                    text: $fixedOverdueFeeText,
+                    keyboardType: .decimalPad
+                )
+                FormPickerRow(title: AppText.string("rules.penaltyBase", defaultValue: "Penalty base"), selection: $penaltyBaseType) {
                     ForEach(LoanPenaltyBaseType.allCases) { type in
                         Text(ruleText("loanPenaltyBase.\(type.rawValue)", fallback: type.rawValue)).tag(type)
                     }
                 }
-                TextField(AppText.string("rules.penaltyDailyRatePercent", defaultValue: "Penalty daily rate (%)"), text: $penaltyDailyRateText)
-                    .keyboardType(.decimalPad)
+                FormTextInputRow(
+                    title: AppText.string("rules.penaltyDailyRatePercent", defaultValue: "Penalty daily rate (%)"),
+                    text: $penaltyDailyRateText,
+                    keyboardType: .decimalPad
+                )
             }
         }
         .navigationTitle(debt.name)
@@ -1580,36 +2239,48 @@ private struct LoanRuleEditor: View {
     var body: some View {
         Form {
             Section(AppText.string("rules.overdueFee", defaultValue: "Overdue Fee")) {
-                Picker(AppText.string("rules.overdueBase", defaultValue: "Overdue base"), selection: $overdueBaseType) {
+                FormPickerRow(title: AppText.string("rules.overdueBase", defaultValue: "Overdue base"), selection: $overdueBaseType) {
                     ForEach(LoanOverdueBaseType.allCases) { type in
                         Text(ruleText("loanOverdueBase.\(type.rawValue)", fallback: type.rawValue)).tag(type)
                     }
                 }
-                Picker(AppText.string("rules.overdueFeeMode", defaultValue: "Overdue fee mode"), selection: $overdueFeeMode) {
+                FormPickerRow(title: AppText.string("rules.overdueFeeMode", defaultValue: "Overdue fee mode"), selection: $overdueFeeMode) {
                     ForEach(LoanOverdueFeeMode.allCases) { mode in
                         Text(ruleText("loanOverdueFeeMode.\(mode.rawValue)", fallback: mode.rawValue)).tag(mode)
                     }
                 }
-                TextField(AppText.string("rules.fixedOverdueFeeOptional", defaultValue: "Fixed overdue fee, optional"), text: $fixedOverdueFeeText)
-                    .keyboardType(.decimalPad)
-                TextField(AppText.string("rules.overdueFeeRate", defaultValue: "Overdue fee rate (%)"), text: $overdueFeeRateText)
-                    .keyboardType(.decimalPad)
+                FormTextInputRow(
+                    title: AppText.string("rules.fixedOverdueFeeOptional", defaultValue: "Fixed overdue fee, optional"),
+                    text: $fixedOverdueFeeText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("rules.overdueFeeRate", defaultValue: "Overdue fee rate (%)"),
+                    text: $overdueFeeRateText,
+                    keyboardType: .decimalPad
+                )
             }
 
             Section(AppText.string("rules.penaltyInterest", defaultValue: "Penalty Interest")) {
-                Picker(AppText.string("rules.penaltyMode", defaultValue: "Penalty mode"), selection: $penaltyInterestMode) {
+                FormPickerRow(title: AppText.string("rules.penaltyMode", defaultValue: "Penalty mode"), selection: $penaltyInterestMode) {
                     ForEach(LoanPenaltyInterestMode.allCases) { mode in
                         Text(ruleText("loanPenaltyMode.\(mode.rawValue)", fallback: mode.rawValue)).tag(mode)
                     }
                 }
-                TextField(AppText.string("rules.penaltyMultiplier", defaultValue: "Penalty rate multiplier"), text: $penaltyRateMultiplierText)
-                    .keyboardType(.decimalPad)
-                TextField(AppText.string("rules.fixedPenaltyDailyRatePercent", defaultValue: "Fixed penalty daily rate (%)"), text: $fixedPenaltyDailyRateText)
-                    .keyboardType(.decimalPad)
+                FormTextInputRow(
+                    title: AppText.string("rules.penaltyMultiplier", defaultValue: "Penalty rate multiplier"),
+                    text: $penaltyRateMultiplierText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("rules.fixedPenaltyDailyRatePercent", defaultValue: "Fixed penalty daily rate (%)"),
+                    text: $fixedPenaltyDailyRateText,
+                    keyboardType: .decimalPad
+                )
             }
 
             Section(AppText.string("rules.paymentAllocation", defaultValue: "Payment Allocation")) {
-                Picker(AppText.string("rules.paymentAllocation", defaultValue: "Payment Allocation"), selection: $paymentAllocationMode) {
+                FormPickerRow(title: AppText.string("rules.paymentAllocation", defaultValue: "Payment Allocation"), selection: $paymentAllocationMode) {
                     ForEach(LoanPaymentAllocationMode.allCases) { mode in
                         Text(ruleText("loanAllocationMode.\(mode.rawValue)", fallback: mode.rawValue)).tag(mode)
                     }
@@ -1763,14 +2434,14 @@ private struct AddDebtSheet: View {
         NavigationStack {
             Form {
                 Section(AppText.string("form.basic", defaultValue: "Basic")) {
-                    Picker(AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
+                    FormPickerRow(title: AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
                         ForEach(DebtType.allCases) { type in
                             Text(AppText.debtType(type)).tag(type)
                         }
                     }
-                    TextField(AppText.string("field.name", defaultValue: "Name"), text: $name)
-                    TextField(counterpartyTitle, text: $counterparty)
-                    TextField(AppText.string("field.note", defaultValue: "Note"), text: $note, axis: .vertical)
+                    FormTextInputRow(title: AppText.string("field.name", defaultValue: "Name"), text: $name)
+                    FormTextInputRow(title: counterpartyTitle, text: $counterparty)
+                    FormTextInputRow(title: AppText.string("field.note", defaultValue: "Note"), text: $note, isMultiline: true)
                 }
 
                 typeSpecificFields
@@ -1823,24 +2494,44 @@ private struct AddDebtSheet: View {
         switch debtType {
         case .creditCard:
             Section(AppText.string("debtType.creditCard", defaultValue: "Credit Card")) {
-                Stepper(value: $billingDay, in: 1...31) { DetailRow(title: AppText.string("field.billingDay", defaultValue: "Billing Day"), value: "\(billingDay)") }
-                Stepper(value: $dueDay, in: 1...31) { DetailRow(title: AppText.string("field.dueDay", defaultValue: "Due Day"), value: "\(dueDay)") }
-                TextField(AppText.string("field.statementAmount", defaultValue: "Statement Amount"), text: $statementAmountText).keyboardType(.decimalPad)
-                TextField(AppText.string("field.minimumPayment", defaultValue: "Minimum Payment"), text: $minimumPaymentText).keyboardType(.decimalPad)
+                FormStepperRow(title: AppText.string("field.billingDay", defaultValue: "Billing Day"), value: $billingDay, range: 1...31)
+                FormStepperRow(title: AppText.string("field.dueDay", defaultValue: "Due Day"), value: $dueDay, range: 1...31)
+                FormTextInputRow(
+                    title: AppText.string("field.statementAmount", defaultValue: "Statement Amount"),
+                    text: $statementAmountText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("field.minimumPayment", defaultValue: "Minimum Payment"),
+                    text: $minimumPaymentText,
+                    keyboardType: .decimalPad
+                )
                 DisclosureGroup(AppText.string("form.advanced", defaultValue: "Advanced Settings, Optional")) {
-                    TextField(AppText.string("field.creditLimit", defaultValue: "Credit Limit"), text: $creditLimitText).keyboardType(.decimalPad)
-                    TextField(AppText.string("field.lastFour", defaultValue: "Card Last 4 Digits"), text: $lastFourDigits)
+                    FormTextInputRow(
+                        title: AppText.string("field.creditLimit", defaultValue: "Credit Limit"),
+                        text: $creditLimitText,
+                        keyboardType: .decimalPad
+                    )
+                    FormTextInputRow(title: AppText.string("field.lastFour", defaultValue: "Card Last 4 Digits"), text: $lastFourDigits)
                 }
             }
         case .loan:
             Section(AppText.string("debtType.loan", defaultValue: "Loan")) {
-                TextField(AppText.string("field.principal", defaultValue: "Principal"), text: $amountText).keyboardType(.decimalPad)
-                TextField(AppText.string("field.annualRatePercent", defaultValue: "Annual Rate (%)"), text: $interestText).keyboardType(.decimalPad)
-                DatePicker(AppText.string("field.startDate", defaultValue: "Start Date"), selection: $startDate, displayedComponents: .date)
-                DatePicker(AppText.string("field.endDate", defaultValue: "End Date"), selection: $endDate, displayedComponents: .date)
-                Stepper(value: $repaymentDay, in: 1...31) { DetailRow(title: AppText.string("field.repaymentDay", defaultValue: "Repayment Day"), value: "\(repaymentDay)") }
-                Stepper(value: $termCount, in: 1...360) { DetailRow(title: AppText.string("field.termCount", defaultValue: "Term Count"), value: "\(termCount)") }
-                Picker(AppText.string("field.repaymentMethod", defaultValue: "Repayment Method"), selection: $loanMethod) {
+                FormTextInputRow(
+                    title: AppText.string("field.principal", defaultValue: "Principal"),
+                    text: $amountText,
+                    keyboardType: .decimalPad
+                )
+                FormTextInputRow(
+                    title: AppText.string("field.annualRatePercent", defaultValue: "Annual Rate (%)"),
+                    text: $interestText,
+                    keyboardType: .decimalPad
+                )
+                WheelDateFieldRow(title: AppText.string("field.startDate", defaultValue: "Start Date"), date: $startDate)
+                WheelDateFieldRow(title: AppText.string("field.endDate", defaultValue: "End Date"), date: $endDate)
+                FormStepperRow(title: AppText.string("field.repaymentDay", defaultValue: "Repayment Day"), value: $repaymentDay, range: 1...31)
+                FormStepperRow(title: AppText.string("field.termCount", defaultValue: "Term Count"), value: $termCount, range: 1...360)
+                FormPickerRow(title: AppText.string("field.repaymentMethod", defaultValue: "Repayment Method"), selection: $loanMethod) {
                     ForEach(LoanRepaymentMethod.allCases) { method in
                         Text(AppText.string("loanMethod.\(method.rawValue)", defaultValue: method.rawValue)).tag(method)
                     }
@@ -1848,23 +2539,31 @@ private struct AddDebtSheet: View {
             }
         case .personalLending:
             Section(AppText.string("debtType.personalLending", defaultValue: "Personal Lending")) {
-                TextField(AppText.string("field.amount", defaultValue: "Amount"), text: $amountText).keyboardType(.decimalPad)
-                Toggle(AppText.string("field.interestBearing", defaultValue: "Interest Bearing"), isOn: $isInterestBearing)
+                FormTextInputRow(
+                    title: AppText.string("field.amount", defaultValue: "Amount"),
+                    text: $amountText,
+                    keyboardType: .decimalPad
+                )
+                FormToggleRow(title: AppText.string("field.interestBearing", defaultValue: "Interest Bearing"), isOn: $isInterestBearing)
                 if isInterestBearing {
-                    TextField(AppText.string("field.fixedInterest", defaultValue: "Fixed Interest"), text: $fixedInterestText).keyboardType(.decimalPad)
+                    FormTextInputRow(
+                        title: AppText.string("field.fixedInterest", defaultValue: "Fixed Interest"),
+                        text: $fixedInterestText,
+                        keyboardType: .decimalPad
+                    )
                 }
-                DatePicker(AppText.string("field.borrowedDate", defaultValue: "Borrowed Date"), selection: $startDate, displayedComponents: .date)
+                WheelDateFieldRow(title: AppText.string("field.borrowedDate", defaultValue: "Borrowed Date"), date: $startDate)
                 if isInterestBearing || personalMethod != .noFixedPlan {
-                    DatePicker(AppText.string("field.endDate", defaultValue: "End Date"), selection: $endDate, displayedComponents: .date)
+                    WheelDateFieldRow(title: AppText.string("field.endDate", defaultValue: "End Date"), date: $endDate)
                 }
-                Picker(AppText.string("field.repaymentMethod", defaultValue: "Repayment Method"), selection: $personalMethod) {
+                FormPickerRow(title: AppText.string("field.repaymentMethod", defaultValue: "Repayment Method"), selection: $personalMethod) {
                     ForEach(PersonalLendingRepaymentMethod.allCases) { method in
                         Text(AppText.string("personalMethod.\(method.rawValue)", defaultValue: method.rawValue)).tag(method)
                     }
                 }
                 if personalMethod == .equalPrincipalEqualInterest {
-                    Stepper(value: $repaymentDay, in: 1...31) { DetailRow(title: AppText.string("field.repaymentDay", defaultValue: "Repayment Day"), value: "\(repaymentDay)") }
-                    Stepper(value: $termCount, in: 1...360) { DetailRow(title: AppText.string("field.termCount", defaultValue: "Term Count"), value: "\(termCount)") }
+                    FormStepperRow(title: AppText.string("field.repaymentDay", defaultValue: "Repayment Day"), value: $repaymentDay, range: 1...31)
+                    FormStepperRow(title: AppText.string("field.termCount", defaultValue: "Term Count"), value: $termCount, range: 1...360)
                 }
             }
             .onChange(of: isInterestBearing) {
@@ -1985,7 +2684,7 @@ private struct ManualOverdueEntrySheet: View {
         NavigationStack {
             Form {
                 Section(AppText.string("overdue.addManual", defaultValue: "Add Manual Overdue")) {
-                    Picker(AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
+                    FormPickerRow(title: AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
                         ForEach(DebtType.allCases) { type in
                             Text(AppText.debtType(type)).tag(type)
                         }
@@ -1997,21 +2696,30 @@ private struct ManualOverdueEntrySheet: View {
 
                 Section(AppText.string("form.basic", defaultValue: "Basic")) {
                     if debtType != .loan {
-                        TextField(AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"), text: $amountText)
-                            .keyboardType(.decimalPad)
+                        FormTextInputRow(
+                            title: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"),
+                            text: $amountText,
+                            keyboardType: .decimalPad
+                        )
                     } else {
                         DetailRow(title: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"), value: AppText.money(defaultOverdueAmount, currencyCode: settings.currencyCode))
                     }
-                    TextField(AppText.string("field.overdueFee", defaultValue: "Overdue Fee"), text: $overdueFeeText)
-                        .keyboardType(.decimalPad)
-                    TextField(AppText.string("field.penaltyInterest", defaultValue: "Penalty Interest"), text: $penaltyInterestText)
-                        .keyboardType(.decimalPad)
-                    DatePicker(AppText.string("field.startDate", defaultValue: "Start Date"), selection: $startDate, displayedComponents: .date)
-                    Toggle(AppText.string("field.hasEndDate", defaultValue: "Has end date"), isOn: $hasEndDate)
+                    FormTextInputRow(
+                        title: AppText.string("field.overdueFee", defaultValue: "Overdue Fee"),
+                        text: $overdueFeeText,
+                        keyboardType: .decimalPad
+                    )
+                    FormTextInputRow(
+                        title: AppText.string("field.penaltyInterest", defaultValue: "Penalty Interest"),
+                        text: $penaltyInterestText,
+                        keyboardType: .decimalPad
+                    )
+                    WheelDateFieldRow(title: AppText.string("field.startDate", defaultValue: "Start Date"), date: $startDate)
+                    FormToggleRow(title: AppText.string("field.hasEndDate", defaultValue: "Has end date"), isOn: $hasEndDate)
                     if hasEndDate {
-                        DatePicker(AppText.string("field.endDate", defaultValue: "End Date"), selection: $endDate, displayedComponents: .date)
+                        WheelDateFieldRow(title: AppText.string("field.endDate", defaultValue: "End Date"), date: $endDate)
                     }
-                    TextField(AppText.string("field.note", defaultValue: "Note"), text: $note, axis: .vertical)
+                    FormTextInputRow(title: AppText.string("field.note", defaultValue: "Note"), text: $note, isMultiline: true)
                 }
 
                 Section(AppText.string("preview.impact", defaultValue: "Impact Preview")) {
@@ -2056,19 +2764,19 @@ private struct ManualOverdueEntrySheet: View {
     private var debtPicker: some View {
         switch debtType {
         case .creditCard:
-            Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+            FormPickerRow(title: AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
                 ForEach(creditCards) { debt in
                     Text(debt.name).tag(Optional(debt.id))
                 }
             }
         case .loan:
-            Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+            FormPickerRow(title: AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
                 ForEach(loans) { debt in
                     Text(debt.name).tag(Optional(debt.id))
                 }
             }
         case .personalLending:
-            Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+            FormPickerRow(title: AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
                 ForEach(personalDebts) { debt in
                     Text(debt.name).tag(Optional(debt.id))
                 }
@@ -2080,14 +2788,14 @@ private struct ManualOverdueEntrySheet: View {
     private var targetPicker: some View {
         switch debtType {
         case .creditCard:
-            Picker(AppText.string("field.currentStatement", defaultValue: "Current Statement"), selection: $selectedTargetID) {
+            FormPickerRow(title: AppText.string("field.currentStatement", defaultValue: "Current Statement"), selection: $selectedTargetID) {
                 ForEach(availableCardStatements) { statement in
                     Text(statement.billingDate.formatted(date: .abbreviated, time: .omitted))
                         .tag(Optional(statement.id))
                 }
             }
         case .loan:
-            Picker(AppText.string("field.plan", defaultValue: "Plan"), selection: $selectedTargetID) {
+            FormPickerRow(title: AppText.string("field.plan", defaultValue: "Plan"), selection: $selectedTargetID) {
                 ForEach(availableLoanPlans) { plan in
                     Text(String(format: AppText.string("format.period", defaultValue: "Period %d"), plan.periodIndex))
                         .tag(Optional(plan.id))
@@ -2097,7 +2805,7 @@ private struct ManualOverdueEntrySheet: View {
             if availablePersonalPlans.isEmpty {
                 DetailRow(title: AppText.string("field.plan", defaultValue: "Plan"), value: AppText.string("personal.noFixedPlanTarget", defaultValue: "Debt-level overdue"))
             } else {
-                Picker(AppText.string("field.plan", defaultValue: "Plan"), selection: $selectedTargetID) {
+                FormPickerRow(title: AppText.string("field.plan", defaultValue: "Plan"), selection: $selectedTargetID) {
                     ForEach(availablePersonalPlans) { plan in
                         Text(String(format: AppText.string("format.period", defaultValue: "Period %d"), plan.periodIndex))
                             .tag(Optional(plan.id))
@@ -2308,20 +3016,23 @@ private struct PaymentEntrySheet: View {
         NavigationStack {
             Form {
                 Section(AppText.string("payments.record", defaultValue: "Record Payment")) {
-                    Picker(AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
+                    FormPickerRow(title: AppText.string("field.type", defaultValue: "Type"), selection: $debtType) {
                         ForEach(DebtType.allCases) { type in
                             Text(AppText.debtType(type)).tag(type)
                         }
                     }
-                    Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
+                    FormPickerRow(title: AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedDebtID) {
                         ForEach(currentDebts, id: \.id) { debt in
                             Text(debt.name).tag(Optional(debt.id))
                         }
                     }
-                    TextField(AppText.string("field.amount", defaultValue: "Amount"), text: $amountText)
-                        .keyboardType(.decimalPad)
-                    DatePicker(AppText.string("field.paymentDate", defaultValue: "Payment Date"), selection: $paymentDate, displayedComponents: .date)
-                    TextField(AppText.string("field.note", defaultValue: "Note"), text: $note, axis: .vertical)
+                    FormTextInputRow(
+                        title: AppText.string("field.amount", defaultValue: "Amount"),
+                        text: $amountText,
+                        keyboardType: .decimalPad
+                    )
+                    WheelDateFieldRow(title: AppText.string("field.paymentDate", defaultValue: "Payment Date"), date: $paymentDate)
+                    FormTextInputRow(title: AppText.string("field.note", defaultValue: "Note"), text: $note, isMultiline: true)
                 }
 
                 Section(AppText.string("preview.impact", defaultValue: "Impact Preview")) {
@@ -2487,17 +3198,23 @@ private struct CreditCardStatementSheet: View {
         NavigationStack {
             Form {
                 Section(AppText.string("statement.update", defaultValue: "Update Statement")) {
-                    Picker(AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedCardID) {
+                    FormPickerRow(title: AppText.string("field.debt", defaultValue: "Debt"), selection: $selectedCardID) {
                         ForEach(creditCards, id: \.id) { card in
                             Text(card.name).tag(Optional(card.id))
                         }
                     }
-                    DatePicker(AppText.string("field.currentStatement", defaultValue: "Billing Date"), selection: $billingDate, displayedComponents: .date)
-                    DatePicker(AppText.string("field.dueDate", defaultValue: "Due Date"), selection: $dueDate, displayedComponents: .date)
-                    TextField(AppText.string("field.statementAmount", defaultValue: "Statement Amount"), text: $statementAmountText)
-                        .keyboardType(.decimalPad)
-                    TextField(AppText.string("field.minimumPayment", defaultValue: "Minimum Payment"), text: $minimumPaymentText)
-                        .keyboardType(.decimalPad)
+                    WheelDateFieldRow(title: AppText.string("field.currentStatement", defaultValue: "Billing Date"), date: $billingDate)
+                    WheelDateFieldRow(title: AppText.string("field.dueDate", defaultValue: "Due Date"), date: $dueDate)
+                    FormTextInputRow(
+                        title: AppText.string("field.statementAmount", defaultValue: "Statement Amount"),
+                        text: $statementAmountText,
+                        keyboardType: .decimalPad
+                    )
+                    FormTextInputRow(
+                        title: AppText.string("field.minimumPayment", defaultValue: "Minimum Payment"),
+                        text: $minimumPaymentText,
+                        keyboardType: .decimalPad
+                    )
                 }
 
                 Section(AppText.string("preview.impact", defaultValue: "Impact Preview")) {
@@ -2623,13 +3340,13 @@ private struct EditDebtSheet: View {
         NavigationStack {
             Form {
                 Section(AppText.string("form.basic", defaultValue: "Basic")) {
-                    TextField(AppText.string("field.name", defaultValue: "Name"), text: $name)
-                    TextField(counterpartyTitle, text: $counterparty)
+                    FormTextInputRow(title: AppText.string("field.name", defaultValue: "Name"), text: $name)
+                    FormTextInputRow(title: counterpartyTitle, text: $counterparty)
                     if selection.type == .creditCard {
-                        Stepper(value: $billingDay, in: 1...31) { DetailRow(title: AppText.string("field.billingDay", defaultValue: "Billing Day"), value: "\(billingDay)") }
-                        Stepper(value: $dueDay, in: 1...31) { DetailRow(title: AppText.string("field.dueDay", defaultValue: "Due Day"), value: "\(dueDay)") }
+                        FormStepperRow(title: AppText.string("field.billingDay", defaultValue: "Billing Day"), value: $billingDay, range: 1...31)
+                        FormStepperRow(title: AppText.string("field.dueDay", defaultValue: "Due Day"), value: $dueDay, range: 1...31)
                     }
-                    TextField(AppText.string("field.note", defaultValue: "Note"), text: $note, axis: .vertical)
+                    FormTextInputRow(title: AppText.string("field.note", defaultValue: "Note"), text: $note, isMultiline: true)
                 }
             }
             .navigationTitle(AppText.string("debt.edit", defaultValue: "Edit Debt"))
@@ -2750,9 +3467,13 @@ private struct OnboardingFlow: View {
                     Text(AppText.string("onboarding.budgetCopy", defaultValue: "This is used for strategy generation and monthly planning. You can change it later."))
                         .font(.body)
                         .foregroundStyle(.secondary)
-                    TextField(AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"), text: $budgetText)
-                        .keyboardType(.decimalPad)
-                        .textFieldStyle(UXTextFieldStyle())
+                    FormTextInputRow(
+                        title: AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"),
+                        text: $budgetText,
+                        keyboardType: .decimalPad
+                    )
+                    .padding(12)
+                    .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
                 }
                 .padding(24)
                 .tag(2)
@@ -2815,6 +3536,7 @@ private struct AppScroll<Content: View>: View {
                 content
             }
             .padding(16)
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(DebtTheme.background.ignoresSafeArea())
         .navigationBarTitleDisplayMode(.inline)
@@ -2860,6 +3582,7 @@ private struct SectionCard<Content: View>: View {
                 .stroke(DebtTheme.border, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -2898,6 +3621,7 @@ private struct HeroAmountCard: View {
                 .stroke(DebtTheme.border, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -2930,6 +3654,7 @@ private struct MetricTile: View {
             RoundedRectangle(cornerRadius: 16)
                 .stroke(DebtTheme.border, lineWidth: 1)
         )
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -2988,6 +3713,7 @@ private struct DebtCardView: View {
                 .stroke(DebtTheme.border, lineWidth: 1)
         )
         .shadow(color: .black.opacity(0.04), radius: 8, x: 0, y: 4)
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3011,6 +3737,7 @@ private struct SummaryHeader: View {
         }
         .padding(18)
         .background(DebtTheme.cardBackground, in: RoundedRectangle(cornerRadius: 20))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3022,12 +3749,161 @@ private struct DetailRow: View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
                 .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
             Spacer(minLength: 12)
             Text(value)
                 .multilineTextAlignment(.trailing)
                 .fontWeight(.medium)
+                .lineLimit(2)
+                .minimumScaleFactor(0.76)
         }
         .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FormTextInputRow: View {
+    var title: String
+    @Binding var text: String
+    var keyboardType: UIKeyboardType = .default
+    var isMultiline = false
+
+    var body: some View {
+        HStack(alignment: isMultiline ? .top : .firstTextBaseline, spacing: 12) {
+            FormFieldTitle(title: title)
+
+            if isMultiline {
+                TextField("", text: $text, axis: .vertical)
+                    .keyboardType(keyboardType)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(2...5)
+                    .accessibilityLabel(Text(title))
+            } else {
+                TextField("", text: $text)
+                    .keyboardType(keyboardType)
+                    .multilineTextAlignment(.trailing)
+                    .lineLimit(1)
+                    .accessibilityLabel(Text(title))
+            }
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FormPickerRow<SelectionValue: Hashable, Content: View>: View {
+    var title: String
+    @Binding var selection: SelectionValue
+    @ViewBuilder var content: () -> Content
+
+    var body: some View {
+        HStack(spacing: 12) {
+            FormFieldTitle(title: title)
+            Picker("", selection: $selection) {
+                content()
+            }
+            .labelsHidden()
+            .pickerStyle(.menu)
+            .frame(maxWidth: .infinity, alignment: .trailing)
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FormToggleRow: View {
+    var title: String
+    @Binding var isOn: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            FormFieldTitle(title: title)
+            Toggle("", isOn: $isOn)
+                .labelsHidden()
+        }
+        .font(.subheadline)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct FormStepperRow: View {
+    var title: String
+    @Binding var value: Int
+    var range: ClosedRange<Int>
+
+    var body: some View {
+        HStack(spacing: 12) {
+            FormFieldTitle(title: title)
+            Spacer(minLength: 8)
+            Text("\(value)")
+                .fontWeight(.medium)
+                .monospacedDigit()
+            Stepper("", value: $value, in: range)
+                .labelsHidden()
+        }
+        .font(.subheadline)
+    }
+}
+
+private struct WheelDateFieldRow: View {
+    var title: String
+    @Binding var date: Date
+    @State private var showingPicker = false
+
+    var body: some View {
+        Button {
+            showingPicker = true
+        } label: {
+            HStack(spacing: 12) {
+                FormFieldTitle(title: title)
+                Spacer(minLength: 8)
+                Text(AppText.date(date))
+                    .fontWeight(.medium)
+                    .multilineTextAlignment(.trailing)
+                Image(systemName: "chevron.up.chevron.down")
+                    .font(.caption2.weight(.semibold))
+                    .foregroundStyle(.tertiary)
+            }
+            .font(.subheadline)
+        }
+        .buttonStyle(.plain)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(Text(title))
+        .accessibilityValue(Text(AppText.date(date)))
+        .accessibilityAddTraits(.isButton)
+        .accessibilityIdentifier(title)
+        .sheet(isPresented: $showingPicker) {
+            NavigationStack {
+                VStack {
+                    DatePicker("", selection: $date, displayedComponents: .date)
+                        .datePickerStyle(.wheel)
+                        .labelsHidden()
+                        .padding(.horizontal)
+                    Spacer(minLength: 0)
+                }
+                .navigationTitle(title)
+                .navigationBarTitleDisplayMode(.inline)
+                .toolbar {
+                    ToolbarItem(placement: .confirmationAction) {
+                        Button("common.done") { showingPicker = false }
+                    }
+                }
+            }
+            .presentationDetents([.medium])
+        }
+    }
+}
+
+private struct FormFieldTitle: View {
+    var title: String
+
+    var body: some View {
+        Text(title)
+            .foregroundStyle(.secondary)
+            .lineLimit(2)
+            .minimumScaleFactor(0.82)
+            .frame(minWidth: 118, maxWidth: 150, alignment: .leading)
     }
 }
 
@@ -3057,6 +3933,7 @@ private struct TodoRow: View {
         }
         .padding(10)
         .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3109,6 +3986,7 @@ private struct QuickActionButton: View {
         .buttonStyle(.plain)
         .foregroundStyle(DebtTheme.primary)
         .background(DebtTheme.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity)
     }
 }
 
@@ -3129,6 +4007,7 @@ private struct ImpactPreviewCard: View {
         }
         .padding(12)
         .background(DebtTheme.primary.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3184,6 +4063,7 @@ private struct InlineNotice: View {
         }
         .padding(14)
         .background((style == .risk ? DebtTheme.danger : DebtTheme.primary).opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3252,6 +4132,7 @@ private struct PaymentRow: View {
         }
         .padding(10)
         .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 }
 
@@ -3276,6 +4157,7 @@ private struct PaymentHistoryCard: View {
                         PaymentRow(row: row)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -3377,8 +4259,10 @@ private struct TimelineSection: View {
                             }
                             .padding(.bottom, 12)
                         }
+                        .frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
@@ -3387,57 +4271,769 @@ private struct TimelineSection: View {
 private struct ChartCard<Content: View>: View {
     var title: String
     var explanation: String
+    var isEmpty: Bool
+    var emptyTitle: String
+    var height: CGFloat
     @ViewBuilder var content: Content
+
+    init(
+        title: String,
+        explanation: String,
+        isEmpty: Bool = false,
+        emptyTitle: String = AppText.string("statistics.emptyChart", defaultValue: "No data to chart yet."),
+        height: CGFloat = 220,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.title = title
+        self.explanation = explanation
+        self.isEmpty = isEmpty
+        self.emptyTitle = emptyTitle
+        self.height = height
+        self.content = content()
+    }
 
     var body: some View {
         SectionCard(title: title) {
             VStack(alignment: .leading, spacing: 12) {
-                content
-                    .frame(height: 190)
+                if isEmpty {
+                    EmptyChartState(title: emptyTitle, minHeight: height)
+                } else {
+                    content
+                        .frame(maxWidth: .infinity)
+                        .frame(height: height)
+                }
                 Text(explanation)
                     .font(.footnote)
                     .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
     }
 }
 
-private struct StrategyResultCard: View {
-    var summary: StrategySummary
-    var recommended: Bool
+private struct StatisticsControlPanel: View {
+    @Binding var period: StatisticsPeriod
+    @Binding var category: StatisticsCategory
+
+    var body: some View {
+        SectionCard(title: AppText.string("statistics.controls", defaultValue: "Analysis Controls")) {
+            VStack(spacing: 10) {
+                controlRow(
+                    title: AppText.string("statistics.period", defaultValue: "Period"),
+                    icon: "calendar"
+                ) {
+                    Picker("", selection: $period) {
+                        ForEach(StatisticsPeriod.allCases) { period in
+                            Text(period.title).tag(period)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+                controlRow(
+                    title: AppText.string("statistics.category", defaultValue: "Category"),
+                    icon: "chart.pie.fill"
+                ) {
+                    Picker("", selection: $category) {
+                        ForEach(StatisticsCategory.allCases) { category in
+                            Label(category.title, systemImage: category.icon).tag(category)
+                        }
+                    }
+                    .labelsHidden()
+                    .pickerStyle(.menu)
+                }
+            }
+        }
+    }
+
+    private func controlRow<Content: View>(
+        title: String,
+        icon: String,
+        @ViewBuilder content: () -> Content
+    ) -> some View {
+        HStack(spacing: 12) {
+            Label(title, systemImage: icon)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            content()
+                .font(.subheadline.weight(.semibold))
+                .tint(DebtTheme.primary)
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct StatisticsMetric: Identifiable {
+    let id = UUID()
+    var title: String
+    var value: String
+    var caption: String
+    var icon: String
+    var color: Color
+}
+
+private struct StatisticsMetricGrid: View {
+    var metrics: [StatisticsMetric]
+
+    private let columns = [
+        GridItem(.adaptive(minimum: 158), spacing: 12)
+    ]
+
+    var body: some View {
+        LazyVGrid(columns: columns, spacing: 12) {
+            ForEach(metrics) { metric in
+                StatisticsMetricCard(metric: metric)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
+private struct StatisticsMetricCard: View {
+    var metric: StatisticsMetric
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top, spacing: 10) {
+                Image(systemName: metric.icon)
+                    .font(.system(size: 17, weight: .semibold))
+                    .frame(width: 34, height: 34)
+                    .foregroundStyle(metric.color)
+                    .background(metric.color.opacity(0.12), in: RoundedRectangle(cornerRadius: 10))
+                Spacer(minLength: 8)
+            }
+            Text(metric.title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.82)
+            Text(metric.value)
+                .font(.title3.weight(.semibold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(metric.caption)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .lineLimit(2)
+                .minimumScaleFactor(0.8)
+        }
+        .padding(14)
+        .frame(maxWidth: .infinity, minHeight: 132, alignment: .leading)
+        .background(DebtTheme.cardBackground, in: RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(DebtTheme.border, lineWidth: 1)
+        )
+    }
+}
+
+private struct ProgressStatRow: View {
+    var title: String
+    var value: Decimal
+    var color: Color
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
             HStack {
-                Text(strategyTitle(summary.strategyType))
-                    .font(.headline)
-                Spacer()
-                if recommended {
+                Text(title)
+                    .font(.subheadline.weight(.medium))
+                Spacer(minLength: 12)
+                Text(AppText.percent(value))
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(color)
+            }
+            ProgressView(value: minDecimal(maxDecimal(value, 0), 1).doubleValue)
+                .tint(color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct LegendAmountRow: View {
+    var item: ChartAmount
+    var total: Decimal
+
+    var body: some View {
+        let ratio = AnalyticsSupport.ratio(item.amount, total)
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline, spacing: 10) {
+                Circle()
+                    .fill(item.color)
+                    .frame(width: 10, height: 10)
+                Text(item.title)
+                    .font(.subheadline.weight(.medium))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                VStack(alignment: .trailing, spacing: 2) {
+                    Text(AppText.money(item.amount))
+                        .font(.subheadline.weight(.semibold))
+                    Text(AppText.percent(ratio))
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            ProgressView(value: minDecimal(maxDecimal(ratio, 0), 1).doubleValue)
+                .tint(item.color)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+private struct RankAmountRow: View {
+    var title: String
+    var subtitle: String
+    var amount: Decimal
+    var color: Color
+
+    var body: some View {
+        HStack(spacing: 12) {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(color)
+                .frame(width: 8)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(title.isEmpty ? AppText.string("common.none") : title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(2)
+                    .minimumScaleFactor(0.82)
+                if subtitle.isEmpty == false {
+                    Text(subtitle)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            Text(AppText.money(amount))
+                .font(.subheadline.weight(.semibold))
+                .multilineTextAlignment(.trailing)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct EmptyChartState: View {
+    var title: String
+    var minHeight: CGFloat = 120
+
+    var body: some View {
+        VStack(spacing: 10) {
+            Image(systemName: "chart.bar.xaxis")
+                .font(.title2.weight(.semibold))
+                .foregroundStyle(DebtTheme.fallback)
+            Text(title)
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .padding(16)
+        .frame(maxWidth: .infinity, minHeight: minHeight)
+        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct StrategyComparisonTable: View {
+    var summaries: [StrategySummary]
+    var recommendedStrategy: StrategyType?
+    @Binding var selectedStrategy: StrategyType?
+    var isSelectable: Bool
+
+    private var orderedSummaries: [StrategySummary] {
+        StrategyType.allCases.compactMap { type in
+            summaries.first { $0.strategyType == type }
+        }
+    }
+
+    private var metricRows: [StrategyMetricRow] {
+        [
+            StrategyMetricRow(
+                id: "payoff",
+                title: AppText.string("strategy.payoffMonth", defaultValue: "Payoff Month"),
+                value: { strategyPayoffText($0.payoffMonth) }
+            ),
+            StrategyMetricRow(
+                id: "totalPayment",
+                title: AppText.string("strategy.totalPayment", defaultValue: "Total Payment"),
+                value: { AppText.money($0.totalPayment) }
+            ),
+            StrategyMetricRow(
+                id: "estimatedCost",
+                title: AppText.string("field.estimatedCost", defaultValue: "Estimated Cost"),
+                value: { AppText.money($0.totalEstimatedCost) }
+            ),
+            StrategyMetricRow(
+                id: "monthlyPayment",
+                title: AppText.string("strategy.monthlyPayment", defaultValue: "Suggested Payment"),
+                value: { AppText.money($0.averageMonthlyPayment) }
+            ),
+            StrategyMetricRow(
+                id: "interest",
+                title: AppText.string("strategy.interest", defaultValue: "Interest"),
+                value: { AppText.money($0.estimatedInterest) }
+            ),
+            StrategyMetricRow(
+                id: "overdueCost",
+                title: AppText.string("field.overdueCost", defaultValue: "Overdue Cost"),
+                value: { AppText.money($0.estimatedOverdueFee + $0.estimatedPenaltyInterest) }
+            ),
+            StrategyMetricRow(
+                id: "risk",
+                title: AppText.string("statistics.riskLevel", defaultValue: "Risk Level"),
+                value: { strategyRiskTitle($0.riskLevel) }
+            ),
+            StrategyMetricRow(
+                id: "feature",
+                title: AppText.string("strategy.feature", defaultValue: "Feature"),
+                value: { $0.featureDescription }
+            ),
+        ]
+    }
+
+    var body: some View {
+        if orderedSummaries.isEmpty {
+            EmptyStateView(
+                icon: "tablecells",
+                title: AppText.string("strategy.noComparison", defaultValue: "No comparison data"),
+                message: AppText.string("strategy.noComparisonCopy", defaultValue: "Generate a strategy comparison to see repayment options."),
+                buttonTitle: nil,
+                action: nil
+            )
+        } else {
+            ViewThatFits(in: .horizontal) {
+                tableBody
+                    .frame(maxWidth: .infinity)
+
+                ScrollView(.horizontal, showsIndicators: false) {
+                    tableBody
+                        .frame(minWidth: 680)
+                }
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    private var tableBody: some View {
+        Grid(horizontalSpacing: 0, verticalSpacing: 0) {
+            GridRow {
+                StrategyMetricTitleCell(
+                    title: AppText.string("strategy.metric", defaultValue: "Metric"),
+                    isHeader: true
+                )
+                ForEach(orderedSummaries, id: \.strategyType) { summary in
+                    StrategyHeaderCell(
+                        summary: summary,
+                        isRecommended: recommendedStrategy == summary.strategyType,
+                        isSelected: selectedStrategy == summary.strategyType,
+                        isSelectable: isSelectable
+                    )
+                    .onTapGesture {
+                        select(summary.strategyType)
+                    }
+                }
+            }
+
+            ForEach(metricRows) { row in
+                GridRow {
+                    StrategyMetricTitleCell(title: row.title, isHeader: false)
+                    ForEach(orderedSummaries, id: \.strategyType) { summary in
+                        StrategyMetricValueCell(
+                            value: row.value(summary),
+                            isSelected: selectedStrategy == summary.strategyType
+                        )
+                        .onTapGesture {
+                            select(summary.strategyType)
+                        }
+                    }
+                }
+            }
+        }
+        .clipShape(RoundedRectangle(cornerRadius: 16))
+        .overlay(
+            RoundedRectangle(cornerRadius: 16)
+                .stroke(DebtTheme.border, lineWidth: 1)
+        )
+    }
+
+    private func select(_ strategyType: StrategyType) {
+        guard isSelectable else { return }
+        selectedStrategy = strategyType
+    }
+}
+
+private struct StrategyMetricRow: Identifiable {
+    var id: String
+    var title: String
+    var value: (StrategySummary) -> String
+}
+
+private struct StrategyMetricTitleCell: View {
+    var title: String
+    var isHeader: Bool
+
+    var body: some View {
+        Text(title)
+            .font(isHeader ? .caption.weight(.bold) : .caption.weight(.semibold))
+            .foregroundStyle(isHeader ? DebtTheme.primary : .secondary)
+            .lineLimit(2)
+            .minimumScaleFactor(0.72)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .frame(minWidth: 104, maxWidth: .infinity, minHeight: isHeader ? 70 : 52, alignment: .leading)
+            .background(isHeader ? DebtTheme.primary.opacity(0.08) : DebtTheme.secondaryBackground)
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(DebtTheme.border)
+                    .frame(width: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(DebtTheme.border)
+                    .frame(height: 1)
+            }
+    }
+}
+
+private struct StrategyHeaderCell: View {
+    var summary: StrategySummary
+    var isRecommended: Bool
+    var isSelected: Bool
+    var isSelectable: Bool
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(strategyTitle(summary.strategyType))
+                .font(.subheadline.weight(.bold))
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+
+            HStack(spacing: 6) {
+                if isSelected {
+                    StatusChip(title: AppText.string("strategy.selected", defaultValue: "Selected"), color: DebtTheme.primary)
+                }
+                if isRecommended {
                     StatusChip(title: AppText.string("strategy.recommended", defaultValue: "Recommended"), color: DebtTheme.strategy)
                 }
             }
-            DetailRow(title: AppText.string("strategy.payoffTime", defaultValue: "Payoff Time"), value: summary.payoffMonth.map { "\($0) " + AppText.string("duration.month.many", defaultValue: "months") } ?? AppText.string("common.none"))
-            DetailRow(title: AppText.string("field.estimatedCost", defaultValue: "Estimated Cost"), value: AppText.money(summary.totalEstimatedCost))
-            DetailRow(title: AppText.string("strategy.monthlyPayment", defaultValue: "Suggested Payment"), value: AppText.money(summary.averageMonthlyPayment))
-            DetailRow(title: AppText.string("strategy.interest", defaultValue: "Interest"), value: AppText.money(summary.estimatedInterest))
-            DetailRow(title: AppText.string("field.overdueCost", defaultValue: "Overdue Cost"), value: AppText.money(summary.estimatedOverdueFee + summary.estimatedPenaltyInterest))
-            Text(summary.featureDescription)
-                .font(.footnote)
-                .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 10)
+        .frame(minWidth: 144, maxWidth: .infinity, minHeight: 70, alignment: .leading)
+        .background(isSelected ? DebtTheme.primary.opacity(0.14) : DebtTheme.cardBackground)
+        .overlay(alignment: .trailing) {
+            Rectangle()
+                .fill(DebtTheme.border)
+                .frame(width: 1)
+        }
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(DebtTheme.border)
+                .frame(height: 1)
+        }
+        .contentShape(Rectangle())
+        .accessibilityAddTraits(isSelectable ? .isButton : [])
+    }
+}
+
+private struct StrategyMetricValueCell: View {
+    var value: String
+    var isSelected: Bool
+
+    var body: some View {
+        Text(value)
+            .font(.callout.weight(isSelected ? .semibold : .regular))
+            .foregroundStyle(isSelected ? DebtTheme.primary : .primary)
+            .monospacedDigit()
+            .lineLimit(3)
+            .minimumScaleFactor(0.68)
+            .padding(.horizontal, 10)
+            .padding(.vertical, 10)
+            .frame(minWidth: 144, maxWidth: .infinity, minHeight: 52, alignment: .leading)
+            .background(isSelected ? DebtTheme.primary.opacity(0.08) : DebtTheme.cardBackground)
+            .overlay(alignment: .trailing) {
+                Rectangle()
+                    .fill(DebtTheme.border)
+                    .frame(width: 1)
+            }
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(DebtTheme.border)
+                    .frame(height: 1)
+            }
+            .contentShape(Rectangle())
+    }
+}
+
+private struct StrategyHistoryRow: View {
+    var batch: StrategyComparisonBatch
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(spacing: 10) {
+                Text(AppText.date(batch.generatedAt))
+                    .font(.headline)
+                    .lineLimit(1)
+                Spacer()
+                StatusChip(title: AppText.string("strategy.assistive", defaultValue: "Simulation"), color: DebtTheme.strategy)
+                Image(systemName: "chevron.right")
+                    .font(.caption.weight(.bold))
+                    .foregroundStyle(.secondary)
+            }
+            DetailRow(title: AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"), value: AppText.money(batch.monthlyBudget))
+            DetailRow(
+                title: AppText.string("strategy.savedStrategy", defaultValue: "Saved Strategy"),
+                value: batch.recommendedStrategy.map { strategyTitle($0) } ?? AppText.string("common.none")
+            )
         }
         .padding(12)
-        .background((recommended ? DebtTheme.strategy : DebtTheme.secondaryBackground).opacity(recommended ? 0.10 : 1), in: RoundedRectangle(cornerRadius: 14))
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+    }
+}
+
+private struct StrategyDetailView: View {
+    var batch: StrategyComparisonBatch
+    var simulations: [StrategySimulation]
+    var monthSnapshots: [StrategyMonthSnapshot]
+    var allocations: [StrategyDebtAllocation]
+
+    private var orderedSimulations: [StrategySimulation] {
+        StrategyType.allCases.compactMap { type in
+            simulations.first { $0.comparisonBatchID == batch.id && $0.strategyType == type }
+        }
+    }
+
+    private var summaries: [StrategySummary] {
+        orderedSimulations.map(strategySummary)
+    }
+
+    private var savedStrategy: StrategyType? {
+        batch.recommendedStrategy
+    }
+
+    private var selectedSimulation: StrategySimulation? {
+        guard let savedStrategy else { return orderedSimulations.first }
+        return orderedSimulations.first { $0.strategyType == savedStrategy } ?? orderedSimulations.first
+    }
+
+    private var selectedSummary: StrategySummary? {
+        guard let selectedSimulation else { return nil }
+        return strategySummary(from: selectedSimulation)
+    }
+
+    private var selectedMonthSnapshots: [StrategyMonthSnapshot] {
+        guard let selectedSimulation else { return [] }
+        return monthSnapshots
+            .filter { $0.simulationID == selectedSimulation.id }
+            .sorted { $0.monthIndex < $1.monthIndex }
+    }
+
+    private var selectedAllocations: [StrategyDebtAllocation] {
+        guard let selectedSimulation else { return [] }
+        return allocations
+            .filter { $0.simulationID == selectedSimulation.id }
+            .sorted {
+                if $0.monthIndex == $1.monthIndex {
+                    return $0.priorityRank < $1.priorityRank
+                }
+                return $0.monthIndex < $1.monthIndex
+            }
+    }
+
+    var body: some View {
+        AppScroll(title: AppText.string("strategy.detail", defaultValue: "Strategy Details")) {
+            SectionCard(title: AppText.string("strategy.detailSummary", defaultValue: "Summary")) {
+                VStack(spacing: 10) {
+                    DetailRow(title: AppText.string("strategy.generatedAt", defaultValue: "Generated At"), value: AppText.date(batch.generatedAt))
+                    DetailRow(title: AppText.string("field.monthlyBudget", defaultValue: "Monthly Budget"), value: AppText.money(batch.monthlyBudget))
+                    DetailRow(
+                        title: AppText.string("strategy.savedStrategy", defaultValue: "Saved Strategy"),
+                        value: savedStrategy.map { strategyTitle($0) } ?? AppText.string("common.none")
+                    )
+                    if let selectedSummary {
+                        DetailRow(title: AppText.string("strategy.payoffMonth", defaultValue: "Payoff Month"), value: strategyPayoffText(selectedSummary.payoffMonth))
+                        DetailRow(title: AppText.string("strategy.totalPayment", defaultValue: "Total Payment"), value: AppText.money(selectedSummary.totalPayment))
+                        DetailRow(title: AppText.string("statistics.riskLevel", defaultValue: "Risk Level"), value: strategyRiskTitle(selectedSummary.riskLevel))
+                    }
+                }
+            }
+
+            SectionCard(title: AppText.string("strategy.comparisonTable", defaultValue: "Comparison Table")) {
+                StrategyComparisonTable(
+                    summaries: summaries,
+                    recommendedStrategy: nil,
+                    selectedStrategy: .constant(savedStrategy),
+                    isSelectable: false
+                )
+            }
+
+            SectionCard(title: AppText.string("strategy.monthlyTimeline", defaultValue: "Monthly Timeline")) {
+                if selectedMonthSnapshots.isEmpty {
+                    EmptyStateView(
+                        icon: "calendar",
+                        title: AppText.string("strategy.noTimeline", defaultValue: "No monthly details"),
+                        message: AppText.string("strategy.noTimelineCopy", defaultValue: "This saved strategy has no monthly repayment snapshots."),
+                        buttonTitle: nil,
+                        action: nil
+                    )
+                } else {
+                    LazyVStack(spacing: 10) {
+                        ForEach(selectedMonthSnapshots) { snapshot in
+                            StrategyMonthTimelineRow(snapshot: snapshot)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+
+            SectionCard(title: AppText.string("strategy.allocationDetails", defaultValue: "Allocation Details")) {
+                let firstMonthAllocations = selectedAllocations.filter { $0.monthIndex == 1 }
+                if firstMonthAllocations.isEmpty {
+                    EmptyStateView(
+                        icon: "list.bullet.rectangle",
+                        title: AppText.string("strategy.noAllocations", defaultValue: "No allocation details"),
+                        message: AppText.string("strategy.noAllocationsCopy", defaultValue: "This saved strategy has no debt-level allocation rows."),
+                        buttonTitle: nil,
+                        action: nil
+                    )
+                } else {
+                    VStack(spacing: 10) {
+                        ForEach(firstMonthAllocations) { allocation in
+                            StrategyAllocationRow(allocation: allocation)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+        }
+    }
+}
+
+private struct StrategyMonthTimelineRow: View {
+    var snapshot: StrategyMonthSnapshot
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(String(format: AppText.string("strategy.monthFormat", defaultValue: "Month %d"), snapshot.monthIndex))
+                    .font(.subheadline.weight(.semibold))
+                Spacer()
+                Text(monthRange)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.72)
+            }
+            HStack(spacing: 10) {
+                StrategyMiniMetric(title: AppText.string("strategy.allocated", defaultValue: "Allocated"), value: AppText.money(snapshot.allocatedAmount))
+                StrategyMiniMetric(title: AppText.string("field.remaining", defaultValue: "Remaining"), value: AppText.money(snapshot.remainingAmountAfterPayment))
+            }
+            HStack(spacing: 10) {
+                StrategyMiniMetric(title: AppText.string("strategy.addedCost", defaultValue: "Added Cost"), value: AppText.money(snapshot.addedInterestAmount + snapshot.addedOverdueFee + snapshot.addedPenaltyInterest))
+                StrategyMiniMetric(title: AppText.string("strategy.unusedBudget", defaultValue: "Unused Budget"), value: AppText.money(snapshot.unusedBudget))
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
+    }
+
+    private var monthRange: String {
+        "\(AppText.date(snapshot.monthStartDate)) - \(AppText.date(snapshot.monthEndDate))"
+    }
+}
+
+private struct StrategyMiniMetric: View {
+    var title: String
+    var value: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(title)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.72)
+            Text(value)
+                .font(.caption.weight(.semibold))
+                .monospacedDigit()
+                .lineLimit(1)
+                .minimumScaleFactor(0.68)
+        }
+        .padding(10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DebtTheme.cardBackground, in: RoundedRectangle(cornerRadius: 12))
+    }
+}
+
+private struct StrategyAllocationRow: View {
+    var allocation: StrategyDebtAllocation
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                VStack(alignment: .leading, spacing: 3) {
+                    Text(allocation.debtName)
+                        .font(.subheadline.weight(.semibold))
+                        .lineLimit(1)
+                    Text(AppText.debtType(allocation.debtType))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Text(AppText.money(allocation.allocatedAmount))
+                    .font(.subheadline.weight(.bold))
+                    .monospacedDigit()
+                    .foregroundStyle(DebtTheme.primary)
+            }
+            DetailRow(title: AppText.string("strategy.priorityRank", defaultValue: "Priority"), value: "\(allocation.priorityRank)")
+            DetailRow(title: AppText.string("field.remaining", defaultValue: "Remaining"), value: AppText.money(allocation.remainingAmountAfterPayment))
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 14))
     }
 }
 
 private struct PrimaryButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.headline)
             .foregroundStyle(.white)
             .padding(.horizontal, 16)
-            .frame(minHeight: 52)
-            .background(DebtTheme.primary.opacity(configuration.isPressed ? 0.82 : 1), in: RoundedRectangle(cornerRadius: 16))
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(
+                DebtTheme.primary.opacity(isEnabled ? (configuration.isPressed ? 0.82 : 1) : 0.42),
+                in: RoundedRectangle(cornerRadius: 16)
+            )
+    }
+}
+
+private struct SecondaryActionButtonStyle: ButtonStyle {
+    @Environment(\.isEnabled) private var isEnabled
+
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(.headline)
+            .foregroundStyle(DebtTheme.primary.opacity(isEnabled ? 1 : 0.45))
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity, minHeight: 52)
+            .background(
+                DebtTheme.primary.opacity(isEnabled ? (configuration.isPressed ? 0.16 : 0.10) : 0.06),
+                in: RoundedRectangle(cornerRadius: 16)
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: 16)
+                    .stroke(DebtTheme.primary.opacity(isEnabled ? 0.22 : 0.10), lineWidth: 1)
+            )
     }
 }
 
@@ -3455,7 +5051,7 @@ private struct DangerButtonStyle: ButtonStyle {
             .font(.headline)
             .foregroundStyle(DebtTheme.danger)
             .padding(.horizontal, 16)
-            .frame(minHeight: 48)
+            .frame(maxWidth: .infinity, minHeight: 48)
             .background(DebtTheme.danger.opacity(configuration.isPressed ? 0.16 : 0.09), in: RoundedRectangle(cornerRadius: 16))
     }
 }
@@ -3551,7 +5147,6 @@ private enum StatisticsPeriod: String, CaseIterable, Identifiable {
     case threeMonths
     case sixMonths
     case twelveMonths
-    case custom
 
     var id: String { rawValue }
 
@@ -3565,24 +5160,71 @@ private enum StatisticsPeriod: String, CaseIterable, Identifiable {
             return AppText.string("period.sixMonths", defaultValue: "6 Months")
         case .twelveMonths:
             return AppText.string("period.twelveMonths", defaultValue: "12 Months")
-        case .custom:
-            return AppText.string("period.custom", defaultValue: "Custom")
         }
     }
 
-    var startDate: Date {
-        let months: Int
+    private var monthCount: Int {
         switch self {
         case .month:
-            months = 1
+            return 1
         case .threeMonths:
-            months = 3
-        case .sixMonths, .custom:
-            months = 6
+            return 3
+        case .sixMonths:
+            return 6
         case .twelveMonths:
-            months = 12
+            return 12
         }
-        return Calendar.current.date(byAdding: .month, value: -months, to: Date()) ?? Date()
+    }
+
+    func analyticsPeriod(containing date: Date, calendar: Calendar = Calendar(identifier: .gregorian)) -> AnalyticsPeriod {
+        let currentMonth = AnalyticsSupport.monthPeriod(containing: date, calendar: calendar)
+        let start = calendar.date(byAdding: .month, value: -(monthCount - 1), to: currentMonth.periodStart) ?? currentMonth.periodStart
+        return AnalyticsPeriod(periodStart: start, periodEndExclusive: currentMonth.periodEndExclusive)
+    }
+}
+
+private enum StatisticsCategory: String, CaseIterable, Identifiable {
+    case overview
+    case debtStructure
+    case paymentAnalysis
+    case overdueRisk
+    case cost
+    case focus
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .overview:
+            return AppText.string("statistics.category.overview", defaultValue: "Overview")
+        case .debtStructure:
+            return AppText.string("statistics.category.debtStructure", defaultValue: "Debt Structure")
+        case .paymentAnalysis:
+            return AppText.string("statistics.category.paymentAnalysis", defaultValue: "Payment Analysis")
+        case .overdueRisk:
+            return AppText.string("statistics.category.overdueRisk", defaultValue: "Overdue Risk")
+        case .cost:
+            return AppText.string("statistics.category.cost", defaultValue: "Cost")
+        case .focus:
+            return AppText.string("statistics.category.focus", defaultValue: "Focus Debts")
+        }
+    }
+
+    var icon: String {
+        switch self {
+        case .overview:
+            return "speedometer"
+        case .debtStructure:
+            return "chart.pie.fill"
+        case .paymentAnalysis:
+            return "chart.line.uptrend.xyaxis"
+        case .overdueRisk:
+            return "exclamationmark.triangle.fill"
+        case .cost:
+            return "banknote.fill"
+        case .focus:
+            return "scope"
+        }
     }
 }
 
@@ -3610,6 +5252,20 @@ private struct ChartAmount: Identifiable {
     var title: String
     var amount: Decimal
     var color: Color
+}
+
+private struct FocusChartAmount: Identifiable {
+    let id = UUID()
+    var title: String
+    var subtitle: String?
+    var amount: Decimal
+    var color: Color
+}
+
+private struct MonthlyPaymentPoint: Identifiable {
+    var id: Date { monthStart }
+    var monthStart: Date
+    var amount: Decimal
 }
 
 private struct TimelineRowData: Identifiable {
@@ -3650,6 +5306,57 @@ private func makePaymentRows(
     return (cards + loanRows + personalRows).sorted { $0.date > $1.date }
 }
 
+private extension Array where Element == ChartAmount {
+    var positiveAmounts: [ChartAmount] {
+        filter { $0.amount > 0 }
+    }
+}
+
+private func chartTotal(_ items: [ChartAmount]) -> Decimal {
+    items.reduce(Decimal(0)) { $0 + AnalyticsSupport.nonNegative($1.amount) }
+}
+
+private func overdueRiskTitle(_ level: AnalyticsOverdueRiskLevel) -> String {
+    switch level {
+    case .none:
+        return AppText.string("risk.none", defaultValue: "None")
+    case .medium:
+        return AppText.string("risk.medium", defaultValue: "Medium")
+    case .high:
+        return AppText.string("risk.high", defaultValue: "High")
+    case .critical:
+        return AppText.string("risk.critical", defaultValue: "Critical")
+    }
+}
+
+private func overdueRiskColor(_ level: AnalyticsOverdueRiskLevel) -> Color {
+    switch level {
+    case .none:
+        return DebtTheme.success
+    case .medium:
+        return DebtTheme.warning
+    case .high:
+        return DebtTheme.danger.opacity(0.82)
+    case .critical:
+        return DebtTheme.danger
+    }
+}
+
+private func costSourceTitle(_ source: AnalyticsCostSource) -> String {
+    switch source {
+    case .userProvided:
+        return AppText.string("costSource.userProvided", defaultValue: "User Provided")
+    case .systemFallback:
+        return AppText.string("costSource.systemFallback", defaultValue: "System Fallback")
+    case .mixed:
+        return AppText.string("costSource.mixed", defaultValue: "Mixed")
+    case .scheduledPlan:
+        return AppText.string("costSource.scheduledPlan", defaultValue: "Scheduled Plan")
+    case .none:
+        return AppText.string("costSource.none", defaultValue: "No Source")
+    }
+}
+
 private func decimal(from text: String) -> Decimal {
     Decimal(string: text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 }
@@ -3672,6 +5379,46 @@ private func markStrategyDirty(_ settings: AppUserSettings, in modelContext: Mod
 
 private func strategyTitle(_ type: StrategyType) -> String {
     AppText.string("strategyType.\(type.rawValue)", defaultValue: type.rawValue.capitalized)
+}
+
+private func strategySummary(from simulation: StrategySimulation) -> StrategySummary {
+    StrategySummary(
+        strategyType: simulation.strategyType,
+        payoffMonth: simulation.estimatedPayoffMonth,
+        payoffDate: simulation.estimatedPayoffDate,
+        totalPayment: simulation.totalAllocatedAmount,
+        totalEstimatedCost: simulation.totalEstimatedCost,
+        estimatedInterest: simulation.estimatedInterestAmount,
+        estimatedOverdueFee: simulation.estimatedOverdueFee,
+        estimatedPenaltyInterest: simulation.estimatedPenaltyInterest,
+        endingRemainingAmount: simulation.endingRemainingAmount,
+        highestMonthlyPayment: simulation.highestMonthlyPayment,
+        averageMonthlyPayment: simulation.averageMonthlyPayment,
+        overdueMonthCount: simulation.overdueMonthCount,
+        highestOverdueDebtCount: simulation.highestOverdueDebtCount,
+        riskLevel: simulation.riskLevel,
+        featureDescription: simulation.featureDescription
+    )
+}
+
+private func strategyPayoffText(_ payoffMonth: Int?) -> String {
+    guard let payoffMonth else {
+        return AppText.string("strategy.notPaidOffWithinLimit", defaultValue: "Not paid off within simulation window")
+    }
+    return String(format: AppText.string("strategy.payoffMonthFormat", defaultValue: "Month %d"), payoffMonth)
+}
+
+private func strategyRiskTitle(_ level: StrategyRiskLevel) -> String {
+    switch level {
+    case .low:
+        return AppText.string("risk.low", defaultValue: "Low")
+    case .medium:
+        return AppText.string("risk.medium", defaultValue: "Medium")
+    case .high:
+        return AppText.string("risk.high", defaultValue: "High")
+    case .critical:
+        return AppText.string("risk.critical", defaultValue: "Critical")
+    }
 }
 
 private func ruleText(_ key: String, fallback: String) -> String {
