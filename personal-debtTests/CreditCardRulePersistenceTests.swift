@@ -340,6 +340,68 @@ struct CreditCardRulePersistenceTests {
     }
 
     @Test
+    func historicalManualOverdueBaselineSurvivesRuleRefresh() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = LoanDebtService(modelContext: context)
+        let today = date(2026, 4, 15)
+        let (_, debt, plans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Managed Loan",
+                creditorName: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPayment,
+                originalPrincipal: 1_200,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2026, 1, 1),
+                endDate: date(2026, 6, 10),
+                repaymentDay: 10,
+                termCount: 1,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
+        )
+        let historicalPlan = try #require(plans.first { $0.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason })
+        var overdues: [LoanOverdueRecord] = []
+        let overdueAmount: Decimal = 80
+        let expectedInterest = minDecimal(overdueAmount, historicalPlan.scheduledInterest)
+        let expectedPrincipal = overdueAmount - expectedInterest
+
+        _ = try service.createManualOverdue(
+            debt: debt,
+            plan: historicalPlan,
+            plans: plans,
+            existingOverdues: &overdues,
+            input: LoanManualOverdueInput(
+                overdueAmount: overdueAmount,
+                overdueFee: 9,
+                penaltyInterest: 4,
+                startDate: historicalPlan.dueDate
+            ),
+            today: today
+        )
+
+        _ = try service.upsertCalculationRule(
+            input: LoanCalculationRuleInput(
+                overdueFeeMode: .fixed,
+                fixedOverdueFee: 99,
+                penaltyInterestMode: .fixedDailyRate,
+                fixedPenaltyDailyRate: decimal("0.10")
+            ),
+            today: today
+        )
+
+        #expect(historicalPlan.remainingInterest == expectedInterest)
+        #expect(historicalPlan.remainingPrincipal == expectedPrincipal)
+        #expect(historicalPlan.remainingOverdueFee == 9)
+        #expect(historicalPlan.remainingPenaltyInterest == 4)
+        #expect(historicalPlan.status == .overdue)
+        #expect(debt.outstandingPrincipal == plans.reduce(Decimal(0)) { $0 + $1.remainingPrincipal })
+        #expect(try context.fetch(FetchDescriptor<LoanOverdueRecord>()).count == 1)
+    }
+
+    @Test
     func loanRuleRefreshDoesNotOverwriteManualOverdue() throws {
         let container = try makeContainer()
         let context = container.mainContext
@@ -365,8 +427,10 @@ struct CreditCardRulePersistenceTests {
         let (_, manual) = try service.createManualOverdue(
             debt: debt,
             plan: plans[0],
+            plans: plans,
             existingOverdues: &overdues,
             input: LoanManualOverdueInput(
+                overdueAmount: plans[0].scheduledTotalAmount,
                 overdueFee: 3,
                 penaltyInterest: 2,
                 startDate: date(2026, 1, 10)

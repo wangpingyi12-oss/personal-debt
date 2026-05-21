@@ -246,6 +246,7 @@ struct PersonalLendingPaymentInput: Equatable {
 }
 
 struct LoanManualOverdueInput: Equatable {
+    var overdueAmount: Decimal
     var overdueFee: Decimal
     var penaltyInterest: Decimal
     var startDate: Date
@@ -253,12 +254,14 @@ struct LoanManualOverdueInput: Equatable {
     var note: String
 
     init(
+        overdueAmount: Decimal = 0,
         overdueFee: Decimal,
         penaltyInterest: Decimal,
         startDate: Date,
         endDate: Date? = nil,
         note: String = ""
     ) {
+        self.overdueAmount = overdueAmount
         self.overdueFee = overdueFee
         self.penaltyInterest = penaltyInterest
         self.startDate = startDate

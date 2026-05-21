@@ -663,4 +663,50 @@ struct StrategySimulationTests {
 
         #expect(result.recommendedSimulation == nil)
     }
+
+    @Test
+    func strategyComparisonCanReturnSimulationForSelectedStrategy() {
+        let batch = StrategyComparisonBatch(
+            strategyDate: date(2026, 5, 19),
+            monthlyBudget: 100,
+            maxMonths: 12,
+            recommendedStrategy: .avalanche
+        )
+        let snowball = StrategySimulationEngine().generateSimulation(
+            name: "Snowball",
+            strategyType: .snowball,
+            monthlyBudget: 100,
+            debts: [
+                StrategyDebtSnapshot(
+                    debtType: .loan,
+                    name: "Loan A",
+                    remainingAmount: 120,
+                    minimumPaymentAmount: 20
+                )
+            ]
+        )
+        let avalanche = StrategySimulationEngine().generateSimulation(
+            name: "Avalanche",
+            strategyType: .avalanche,
+            monthlyBudget: 100,
+            debts: [
+                StrategyDebtSnapshot(
+                    debtType: .creditCard,
+                    name: "Card B",
+                    remainingAmount: 200,
+                    minimumPaymentAmount: 25
+                )
+            ]
+        )
+        let result = StrategyComparisonResult(
+            comparisonBatch: batch,
+            simulations: [snowball, avalanche],
+            riskEvents: []
+        )
+
+        #expect(result.simulation(for: .snowball)?.simulation.strategyType == .snowball)
+        #expect(result.simulation(for: .avalanche)?.simulation.strategyType == .avalanche)
+        #expect(result.simulation(for: .balanced) == nil)
+        #expect(result.simulation(for: nil) == nil)
+    }
 }

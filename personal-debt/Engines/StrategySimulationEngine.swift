@@ -206,9 +206,13 @@ struct StrategyComparisonResult {
         simulations.map(\.summary)
     }
 
-    var recommendedSimulation: StrategySimulationOutput? {
-        guard let strategyType = comparisonBatch.recommendedStrategy else { return nil }
+    func simulation(for strategyType: StrategyType?) -> StrategySimulationOutput? {
+        guard let strategyType else { return nil }
         return simulations.first { $0.simulation.strategyType == strategyType }
+    }
+
+    var recommendedSimulation: StrategySimulationOutput? {
+        simulation(for: comparisonBatch.recommendedStrategy)
     }
 }
 

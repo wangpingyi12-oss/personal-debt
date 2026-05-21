@@ -687,16 +687,17 @@ private struct DebtDetailScreen: View {
                         onRecordPayment(DebtSelection(type: item.debtType, id: item.id))
                     } label: {
                         Label(AppText.string("payments.record", defaultValue: "Record Payment"), systemImage: "checkmark.circle.fill")
+                            .frame(maxWidth: .infinity)
                     }
                     .buttonStyle(PrimaryButtonStyle())
 
                     Button {
                         showingEdit = true
                     } label: {
-                        Image(systemName: "pencil")
-                            .frame(width: 44, height: 44)
+                        Label(AppText.string("common.edit", defaultValue: "Edit"), systemImage: "pencil")
+                            .frame(maxWidth: .infinity)
                     }
-                    .buttonStyle(SecondaryIconButtonStyle())
+                    .buttonStyle(PrimaryButtonStyle())
                 }
 
                 switch item.debtType {
@@ -1105,6 +1106,34 @@ private struct StrategyTab: View {
                                 recommendedStrategy: latestResult.comparisonBatch.recommendedStrategy,
                                 selectedStrategy: $selectedStrategy
                             )
+
+                            if let selectedOutput = latestResult.simulation(for: selectedStrategy) {
+                                NavigationLink {
+                                    StrategyDetailView(
+                                        batch: latestResult.comparisonBatch,
+                                        simulation: selectedOutput.simulation,
+                                        monthSnapshots: selectedOutput.monthSnapshots.sorted { $0.monthIndex < $1.monthIndex },
+                                        allocations: selectedOutput.allocations.sorted {
+                                            if $0.monthIndex == $1.monthIndex {
+                                                return $0.priorityRank < $1.priorityRank
+                                            }
+                                            return $0.monthIndex < $1.monthIndex
+                                        },
+                                        riskEvents: selectedOutput.riskEvents.sorted {
+                                            if $0.monthIndex == $1.monthIndex {
+                                                return $0.riskLevel.rank > $1.riskLevel.rank
+                                            }
+                                            return $0.monthIndex < $1.monthIndex
+                                        }
+                                    )
+                                } label: {
+                                    Label(AppText.string("strategy.viewSelected", defaultValue: "View Selected Strategy"), systemImage: "chart.bar.doc.horizontal")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.bordered)
+                                .tint(DebtTheme.primary)
+                                .accessibilityIdentifier("strategyViewSelectedButton")
+                            }
 
                             Button {
                                 saveSelected()
@@ -2401,7 +2430,7 @@ private struct AddDebtSheet: View {
                 InlineNotice(
                     style: .info,
                     title: AppText.string("loan.lifecycleAutoTitle", defaultValue: "Loan stage is inferred"),
-                    message: AppText.string("loan.lifecycleAutoCopy", defaultValue: "The app determines whether this loan is upcoming, in progress or already completed from the start and end dates. Earlier periods are assumed settled by default.")
+                    message: AppText.string("loan.lifecycleAutoCopy", defaultValue: "The app determines whether this loan is upcoming, in progress or already completed from the start and end dates. Earlier periods are assumed settled by default. If historical underpayment or overdue exists, add it later from manual overdue.")
                 )
             }
         case .personalLending:
@@ -2560,14 +2589,25 @@ private struct ManualOverdueEntrySheet: View {
                 }
 
                 Section(AppText.string("form.basic", defaultValue: "Basic")) {
-                    if debtType != .loan {
+                    if debtType == .loan {
                         FormTextInputRow(
                             title: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"),
                             text: $amountText,
                             keyboardType: .decimalPad
                         )
+                        if selectedLoanPlanIsAutoSettledHistory {
+                            InlineNotice(
+                                style: .info,
+                                title: AppText.string("loan.manualOverdueHistoryTitle", defaultValue: "Historical period override"),
+                                message: AppText.string("loan.manualOverdueHistoryCopy", defaultValue: "This period is currently treated as fully paid by default. Adding manual overdue here will override that assumption for this contract period.")
+                            )
+                        }
                     } else {
-                        DetailRow(title: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"), value: AppText.money(defaultOverdueAmount, currencyCode: settings.currencyCode))
+                        FormTextInputRow(
+                            title: AppText.string("field.overdueAmount", defaultValue: "Overdue Amount"),
+                            text: $amountText,
+                            keyboardType: .decimalPad
+                        )
                     }
                     FormTextInputRow(
                         title: AppText.string("field.overdueFee", defaultValue: "Overdue Fee"),
@@ -2699,7 +2739,7 @@ private struct ManualOverdueEntrySheet: View {
 
     private var availableLoanPlans: [LoanRepaymentPlan] {
         loanPlans
-            .filter { $0.debtID == selectedDebtID && $0.status != .paid }
+            .filter { $0.debtID == selectedDebtID && ($0.status != .paid || isSelectableHistoricalLoanPlan($0)) }
             .sorted { $0.periodIndex < $1.periodIndex }
     }
 
@@ -2736,14 +2776,21 @@ private struct ManualOverdueEntrySheet: View {
             return selectedCardStatement?.remainingAmount ?? 0
         case .loan:
             guard let plan = selectedLoanPlan else { return 0 }
-            return plan.remainingPrincipal + plan.remainingInterest
+            return isSelectableHistoricalLoanPlan(plan)
+                ? plan.scheduledTotalAmount
+                : (plan.remainingPrincipal + plan.remainingInterest)
         case .personalLending:
             return selectedPersonalPlan?.remainingAmount ?? selectedPersonalDebt?.remainingAmount ?? 0
         }
     }
 
     private var previewOverdueAmount: Decimal {
-        debtType == .loan ? defaultOverdueAmount : decimal(from: amountText)
+        decimalOptional(from: amountText) ?? defaultOverdueAmount
+    }
+
+    private var selectedLoanPlanIsAutoSettledHistory: Bool {
+        guard let plan = selectedLoanPlan else { return false }
+        return isSelectableHistoricalLoanPlan(plan)
     }
 
     private func resetSelectionForType() {
@@ -2771,7 +2818,6 @@ private struct ManualOverdueEntrySheet: View {
     }
 
     private func syncDefaultAmountIfNeeded(force: Bool = false) {
-        guard debtType != .loan else { return }
         if force || amountText.isEmpty || decimal(from: amountText) == 0 {
             amountText = plainNumber(defaultOverdueAmount)
         }
@@ -2808,8 +2854,10 @@ private struct ManualOverdueEntrySheet: View {
                 _ = try LoanDebtService(modelContext: modelContext, writeAccessAuthorizer: subscriptionStore).createManualOverdue(
                     debt: debt,
                     plan: plan,
+                    plans: loanPlans.filter { $0.debtID == debt.id },
                     existingOverdues: &overdues,
                     input: LoanManualOverdueInput(
+                        overdueAmount: decimal(from: amountText),
                         overdueFee: decimal(from: overdueFeeText),
                         penaltyInterest: decimal(from: penaltyInterestText),
                         startDate: startDate,
@@ -2842,6 +2890,10 @@ private struct ManualOverdueEntrySheet: View {
         } catch {
             onResult(.failure(error))
         }
+    }
+
+    private func isSelectableHistoricalLoanPlan(_ plan: LoanRepaymentPlan) -> Bool {
+        plan.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason && plan.scheduledTotalAmount > 0
     }
 }
 
@@ -3598,6 +3650,7 @@ private struct FormTextInputRow: View {
     @Binding var text: String
     var keyboardType: UIKeyboardType = .default
     var isMultiline = false
+    @FocusState private var isFocused: Bool
 
     var body: some View {
         HStack(alignment: isMultiline ? .top : .firstTextBaseline, spacing: 12) {
@@ -3609,15 +3662,27 @@ private struct FormTextInputRow: View {
                     .multilineTextAlignment(.trailing)
                     .lineLimit(2...5)
                     .accessibilityLabel(Text(title))
+                    .focused($isFocused)
             } else {
                 TextField("", text: $text)
                     .keyboardType(keyboardType)
                     .multilineTextAlignment(.trailing)
                     .lineLimit(1)
                     .accessibilityLabel(Text(title))
+                    .focused($isFocused)
             }
         }
         .font(.subheadline)
+        .toolbar {
+            if keyboardType == .decimalPad && isFocused {
+                ToolbarItemGroup(placement: .keyboard) {
+                    Spacer()
+                    Button(AppText.string("common.done", defaultValue: "Done")) {
+                        isFocused = false
+                    }
+                }
+            }
+        }
     }
 }
 

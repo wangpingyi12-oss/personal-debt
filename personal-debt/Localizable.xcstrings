@@ -2256,6 +2256,74 @@
         }
       }
     },
+    "loan.lifecycleAutoCopy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "The app determines whether this loan is upcoming, in progress or already completed from the start and end dates. Earlier periods are assumed settled by default. If historical underpayment or overdue exists, add it later from manual overdue."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "应用会根据开始日期和结束日期自动判断这笔贷款是未开始、进行中还是已结束，并默认将更早的期数视为已结清。如果历史上存在少还或逾期，请在创建后通过手工逾期补录。"
+          }
+        }
+      }
+    },
+    "loan.lifecycleAutoTitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loan stage is inferred"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "贷款阶段自动判断"
+          }
+        }
+      }
+    },
+    "loan.manualOverdueHistoryCopy" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This period is currently treated as fully paid by default. Adding manual overdue here will override that assumption for this contract period."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前这期默认被视为已正常还清。在这里补录手工逾期会覆盖这一期“默认已正常还款”的假设。"
+          }
+        }
+      }
+    },
+    "loan.manualOverdueHistoryTitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Historical period override"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "历史期次覆盖"
+          }
+        }
+      }
+    },
     "loan.remainingPrincipal" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2371,38 +2439,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "到期还本付息"
-          }
-        }
-      }
-    },
-    "loan.lifecycleAutoCopy" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "The app determines whether this loan is upcoming, in progress or already completed from the start and end dates. Earlier periods are assumed settled by default."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "应用会根据开始日期和结束日期自动判断这笔贷款是未开始、进行中还是已结束，并默认将更早的期数视为已结清。"
-          }
-        }
-      }
-    },
-    "loan.lifecycleAutoTitle" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Loan stage is inferred"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "贷款阶段自动判断"
           }
         }
       }

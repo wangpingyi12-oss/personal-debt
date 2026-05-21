@@ -49,7 +49,10 @@ final class LoanDebtService {
                 termCount: 1,
                 currencyCode: input.currencyCode
             )
-            let plans = try scheduleEngine.generatePlans(for: debt)
+            let plans = try scheduleEngine.generatePlans(
+                for: debt,
+                preservingOriginalContractForInProgress: shouldPreserveOriginalContractSchedule(input: input, normalized: normalized)
+            )
             if normalized.autoSettleAllPlans {
                 autoSettleCompletedPlans(plans)
                 debt.outstandingPrincipal = 0
@@ -114,7 +117,10 @@ final class LoanDebtService {
             debt.currencyCode = input.currencyCode
             debt.status = .active
             debt.updatedAt = Date()
-            let regeneratedPlans = try scheduleEngine.generatePlans(for: debt)
+            let regeneratedPlans = try scheduleEngine.generatePlans(
+                for: debt,
+                preservingOriginalContractForInProgress: shouldPreserveOriginalContractSchedule(input: input, normalized: normalized)
+            )
             if normalized.autoSettleAllPlans {
                 autoSettleCompletedPlans(regeneratedPlans)
                 debt.outstandingPrincipal = 0
@@ -222,6 +228,9 @@ final class LoanDebtService {
         try perform {
             let effectiveRule = rule ?? LoanCalculationRule.builtInDefault()
             for plan in plans where plan.status != .paid {
+                if shouldSkipSystemOverdueGeneration(for: plan.id, overdues: overdues) {
+                    continue
+                }
                 if overdues.contains(where: { $0.planID == plan.id && $0.status == .ignored }) {
                     continue
                 }
@@ -257,15 +266,17 @@ final class LoanDebtService {
     func createManualOverdue(
         debt: LoanDebt,
         plan: LoanRepaymentPlan,
+        plans: [LoanRepaymentPlan],
         existingOverdues: inout [LoanOverdueRecord],
         input: LoanManualOverdueInput,
         today: Date = Date()
     ) throws -> (DebtServiceResult, LoanOverdueRecord) {
         try perform {
-            if existingOverdues.contains(where: { $0.planID == plan.id && $0.status == .active }) {
+            if existingOverdues.contains(where: { $0.planID == plan.id && overdueRecordKeepsManualBaseline($0) }) {
                 throw DebtServiceError.validationFailed(String(localized: "error.overdueAlreadyExists", defaultValue: "An active overdue record already exists for this item."))
             }
-            try validateManualOverdueInput(input, dueDate: plan.dueDate, today: today)
+            try validateManualOverdueInput(input, plan: plan, today: today)
+            let components = manualOverdueComponents(for: plan, overdueAmount: input.overdueAmount)
 
             let record = LoanOverdueRecord(
                 debtID: debt.id,
@@ -276,7 +287,10 @@ final class LoanDebtService {
                 overdueStartDate: input.startDate,
                 overdueEndDate: input.endDate,
                 overdueDays: overdueDays(from: input.startDate, to: input.endDate ?? today),
-                overdueBaseAmount: plan.remainingPrincipal + plan.remainingInterest,
+                overdueBaseAmount: components.overdueAmount,
+                overdueAmount: components.overdueAmount,
+                unpaidInterestAmount: components.unpaidInterestAmount,
+                unpaidPrincipalAmount: components.unpaidPrincipalAmount,
                 overdueFee: input.overdueFee,
                 penaltyInterest: input.penaltyInterest,
                 note: input.note,
@@ -285,15 +299,8 @@ final class LoanDebtService {
             )
             existingOverdues.append(record)
             insert(record)
-            plan.overdueStartDate = input.startDate
-            plan.overdueDays = record.overdueDays
-            plan.remainingOverdueFee = input.overdueFee
-            plan.remainingPenaltyInterest = input.penaltyInterest
-            plan.remainingTotalAmount = plan.remainingPrincipal + plan.remainingInterest + input.overdueFee + input.penaltyInterest
-            if record.status == .active {
-                plan.status = .overdue
-                debt.status = .overdue
-            }
+            applyManualOverdue(record, to: plan, today: today)
+            try refreshAfterManualOverdueMutation(debt: debt, plans: plans, overdues: existingOverdues, today: today)
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return (.created, record)
         }
@@ -312,28 +319,23 @@ final class LoanDebtService {
             guard overdue.isUserManaged else {
                 throw DebtServiceError.validationFailed(String(localized: "error.onlyUserOverdueCanBeEdited", defaultValue: "Only user-managed overdue records can be edited."))
             }
-            try validateManualOverdueInput(input, dueDate: plan.dueDate, today: today)
+            try validateManualOverdueInput(input, plan: plan, today: today)
+            let components = manualOverdueComponents(for: plan, overdueAmount: input.overdueAmount)
             overdue.source = .userAdjusted
             overdue.status = input.endDate == nil ? .active : .closed
             overdue.overdueStartDate = input.startDate
             overdue.overdueEndDate = input.endDate
             overdue.overdueDays = overdueDays(from: input.startDate, to: input.endDate ?? today)
-            overdue.overdueBaseAmount = plan.remainingPrincipal + plan.remainingInterest
+            overdue.overdueBaseAmount = components.overdueAmount
+            overdue.overdueAmount = components.overdueAmount
+            overdue.unpaidInterestAmount = components.unpaidInterestAmount
+            overdue.unpaidPrincipalAmount = components.unpaidPrincipalAmount
             overdue.overdueFee = input.overdueFee
             overdue.penaltyInterest = input.penaltyInterest
             overdue.note = input.note
             overdue.updatedAt = today
-            plan.overdueStartDate = input.startDate
-            plan.overdueDays = overdue.overdueDays
-            plan.remainingOverdueFee = input.endDate == nil ? input.overdueFee : 0
-            plan.remainingPenaltyInterest = input.endDate == nil ? input.penaltyInterest : 0
-            plan.remainingTotalAmount = plan.remainingPrincipal + plan.remainingInterest + plan.remainingOverdueFee + plan.remainingPenaltyInterest
-            if input.endDate == nil {
-                plan.status = .overdue
-                debt.status = .overdue
-            } else {
-                recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
-            }
+            applyManualOverdue(overdue, to: plan, today: today)
+            try refreshAfterManualOverdueMutation(debt: debt, plans: plans, overdues: overdues, today: today)
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return .recalculated
         }
@@ -353,18 +355,9 @@ final class LoanDebtService {
             overdue.overdueEndDate = overdue.overdueEndDate ?? today
             overdue.updatedAt = today
             if let plan {
-                plan.remainingOverdueFee = 0
-                plan.remainingPenaltyInterest = 0
-                plan.remainingTotalAmount = plan.remainingPrincipal + plan.remainingInterest
-                if plan.remainingTotalAmount == 0 {
-                    plan.status = .paid
-                } else if plan.paidTotalAmount > 0 {
-                    plan.status = .partiallyPaid
-                } else {
-                    plan.status = .pending
-                }
+                restorePlanBaseline(plan, today: today)
             }
-            recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            try refreshAfterManualOverdueMutation(debt: debt, plans: plans, overdues: overdues, today: today)
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return .recalculated
         }
@@ -493,11 +486,10 @@ final class LoanDebtService {
     ) throws -> DebtServiceResult {
         try perform {
             overdue.status = .closed
+            overdue.overdueEndDate = overdue.overdueEndDate ?? today
             overdue.updatedAt = today
-            if plan.remainingPrincipal > 0 || plan.remainingInterest > 0 {
-                plan.status = plan.paidTotalAmount > 0 ? .partiallyPaid : .pending
-            }
-            recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            plan.status = restoredPlanStatus(for: plan, overdueStatus: overdue.status)
+            try refreshAfterManualOverdueMutation(debt: debt, plans: plans, overdues: overdues, today: today)
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return .recalculated
         }
@@ -524,6 +516,35 @@ final class LoanDebtService {
         }
         replaceAllocationDetails(&allocationDetails, with: result.details)
         recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+    }
+
+    private func refreshAfterManualOverdueMutation(
+        debt: LoanDebt,
+        plans: [LoanRepaymentPlan],
+        overdues: [LoanOverdueRecord],
+        today: Date
+    ) throws {
+        guard let modelContext else {
+            recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
+            return
+        }
+
+        let payments = try modelContext.fetch(FetchDescriptor<LoanPaymentRecord>())
+            .filter { $0.debtID == debt.id }
+        var allocationDetails = try modelContext.fetch(FetchDescriptor<LoanPaymentAllocationDetail>())
+            .filter { $0.debtID == debt.id }
+        let rules = try fetchCalculationRules()
+        let rule = effectiveCalculationRule(for: debt, rules: rules)
+
+        try rebuildAllocations(
+            debt: debt,
+            plans: plans,
+            payments: payments,
+            allocationDetails: &allocationDetails,
+            overdues: overdues.filter { $0.status != .voided },
+            rule: rule,
+            today: today
+        )
     }
 
     private func refreshAfterCalculationRuleChange(targetDebtID: UUID?, today: Date) throws {
@@ -558,6 +579,9 @@ final class LoanDebtService {
             var debtOverdues = overdues.filter { $0.debtID == debt.id && $0.status != .voided }
 
             for plan in debtPlans where plan.status != .paid {
+                if shouldSkipSystemOverdueGeneration(for: plan.id, overdues: debtOverdues) {
+                    continue
+                }
                 if debtOverdues.contains(where: { $0.planID == plan.id && $0.status == .ignored }) {
                     continue
                 }
@@ -605,8 +629,8 @@ final class LoanDebtService {
         overdues: [LoanOverdueRecord],
         today: Date
     ) {
-        let paidPrincipal = plans.reduce(Decimal(0)) { $0 + $1.paidPrincipal }
-        debt.outstandingPrincipal = roundingPolicy.round(maxDecimal(debt.openingPrincipalForManagement - paidPrincipal, 0))
+        let remainingPrincipal = plans.reduce(Decimal(0)) { $0 + $1.remainingPrincipal }
+        debt.outstandingPrincipal = roundingPolicy.round(maxDecimal(remainingPrincipal, 0))
         let plansPaid = plans.allSatisfy { $0.status == .paid }
         let overduesClosed = overdues.allSatisfy { [.paid, .waived, .closed, .ignored, .voided].contains($0.status) }
 
@@ -721,13 +745,17 @@ final class LoanDebtService {
         }
     }
 
-    private func validateManualOverdueInput(_ input: LoanManualOverdueInput, dueDate: Date, today: Date) throws {
+    private func validateManualOverdueInput(_ input: LoanManualOverdueInput, plan: LoanRepaymentPlan, today: Date) throws {
+        try validateNonNegative(input.overdueAmount, field: "overdueAmount")
         try validateNonNegative(input.overdueFee, field: "overdueFee")
         try validateNonNegative(input.penaltyInterest, field: "penaltyInterest")
+        guard input.overdueAmount <= plan.scheduledTotalAmount else {
+            throw DebtServiceError.validationFailed("Overdue amount must not exceed the scheduled amount for this plan.")
+        }
         guard input.startDate <= today else {
             throw DebtServiceError.validationFailed(String(localized: "error.overdueStartInFuture", defaultValue: "Overdue start date must not be later than today."))
         }
-        guard input.startDate >= dueDate else {
+        guard input.startDate >= plan.dueDate else {
             throw DebtServiceError.validationFailed(String(localized: "error.overdueStartBeforeDueDate", defaultValue: "Overdue start date must not be earlier than the due date."))
         }
         if let endDate = input.endDate, endDate < input.startDate {
@@ -745,6 +773,112 @@ final class LoanDebtService {
         }
     }
 
+    private struct ManualOverdueComponents {
+        var overdueAmount: Decimal
+        var unpaidInterestAmount: Decimal
+        var unpaidPrincipalAmount: Decimal
+    }
+
+    private func manualOverdueComponents(
+        for plan: LoanRepaymentPlan,
+        overdueAmount: Decimal
+    ) -> ManualOverdueComponents {
+        let normalizedOverdueAmount = roundingPolicy.round(
+            minDecimal(maxDecimal(overdueAmount, 0), plan.scheduledTotalAmount)
+        )
+        let unpaidInterestAmount = roundingPolicy.round(minDecimal(normalizedOverdueAmount, plan.scheduledInterest))
+        let unpaidPrincipalAmount = roundingPolicy.round(
+            minDecimal(maxDecimal(normalizedOverdueAmount - unpaidInterestAmount, 0), plan.scheduledPrincipal)
+        )
+        return ManualOverdueComponents(
+            overdueAmount: normalizedOverdueAmount,
+            unpaidInterestAmount: unpaidInterestAmount,
+            unpaidPrincipalAmount: unpaidPrincipalAmount
+        )
+    }
+
+    private func applyManualOverdue(_ overdue: LoanOverdueRecord, to plan: LoanRepaymentPlan, today: Date) {
+        plan.overdueStartDate = overdue.overdueStartDate
+        plan.overdueDays = overdue.overdueDays
+        plan.paidInterest = roundingPolicy.round(maxDecimal(plan.scheduledInterest - overdue.unpaidInterestAmount, 0))
+        plan.paidPrincipal = roundingPolicy.round(maxDecimal(plan.scheduledPrincipal - overdue.unpaidPrincipalAmount, 0))
+        plan.remainingInterest = overdue.unpaidInterestAmount
+        plan.remainingPrincipal = overdue.unpaidPrincipalAmount
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.remainingOverdueFee = overdue.overdueFee
+        plan.remainingPenaltyInterest = overdue.penaltyInterest
+        plan.paidTotalAmount = plan.paidPrincipal + plan.paidInterest
+        plan.remainingTotalAmount = plan.remainingPrincipal + plan.remainingInterest + plan.remainingOverdueFee + plan.remainingPenaltyInterest
+        plan.status = restoredPlanStatus(for: plan, overdueStatus: overdue.status)
+        plan.updatedAt = today
+    }
+
+    private func restorePlanBaseline(_ plan: LoanRepaymentPlan, today: Date) {
+        if plan.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason {
+            applyDefaultHistoricalSettlement(to: plan)
+        } else {
+            applyDefaultContractBaseline(to: plan)
+        }
+        plan.updatedAt = today
+    }
+
+    private func applyDefaultHistoricalSettlement(to plan: LoanRepaymentPlan) {
+        plan.status = .paid
+        plan.remainingPrincipal = 0
+        plan.remainingInterest = 0
+        plan.remainingOverdueFee = 0
+        plan.remainingPenaltyInterest = 0
+        plan.remainingTotalAmount = 0
+        plan.paidPrincipal = plan.scheduledPrincipal
+        plan.paidInterest = plan.scheduledInterest
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.paidTotalAmount = plan.scheduledTotalAmount
+        plan.overdueStartDate = nil
+        plan.overdueDays = 0
+    }
+
+    private func applyDefaultContractBaseline(to plan: LoanRepaymentPlan) {
+        plan.status = .pending
+        plan.remainingPrincipal = plan.scheduledPrincipal
+        plan.remainingInterest = plan.scheduledInterest
+        plan.remainingOverdueFee = 0
+        plan.remainingPenaltyInterest = 0
+        plan.remainingTotalAmount = plan.scheduledTotalAmount
+        plan.paidPrincipal = 0
+        plan.paidInterest = 0
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.paidTotalAmount = 0
+        plan.overdueStartDate = nil
+        plan.overdueDays = 0
+    }
+
+    private func restoredPlanStatus(
+        for plan: LoanRepaymentPlan,
+        overdueStatus: LoanOverdueRecordStatus
+    ) -> PlanStatus {
+        if plan.remainingTotalAmount == 0 {
+            return .paid
+        }
+        if overdueStatus == .active {
+            return .overdue
+        }
+        if plan.paidTotalAmount > 0 {
+            return .partiallyPaid
+        }
+        return .pending
+    }
+
+    private func overdueRecordKeepsManualBaseline(_ overdue: LoanOverdueRecord) -> Bool {
+        ![.ignored, .voided, .waived].contains(overdue.status)
+    }
+
+    private func shouldSkipSystemOverdueGeneration(for planID: UUID, overdues: [LoanOverdueRecord]) -> Bool {
+        overdues.contains { $0.planID == planID && $0.isUserManaged && overdueRecordKeepsManualBaseline($0) }
+    }
+
     private struct NormalizedLoanLifecycleInput {
         var entryMode: LoanEntryMode
         var managementStartDate: Date?
@@ -756,6 +890,15 @@ final class LoanDebtService {
         case notStarted
         case inProgress(managementStartDate: Date)
         case completed
+    }
+
+    private func shouldPreserveOriginalContractSchedule(
+        input: LoanDebtInput,
+        normalized: NormalizedLoanLifecycleInput
+    ) -> Bool {
+        input.autoDetectLifecycleFromDates
+            && normalized.entryMode == .inProgressLoan
+            && normalized.autoSettleAllPlans == false
     }
 
     private func normalizedLifecycleInput(from input: LoanDebtInput, today: Date) throws -> NormalizedLoanLifecycleInput {

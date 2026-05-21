@@ -641,8 +641,195 @@ struct BusinessLoopServiceTests {
         #expect(historicalPlans.isEmpty == false)
         #expect(historicalPlans.allSatisfy { $0.status == .paid })
         #expect(historicalPlans.allSatisfy { $0.remainingTotalAmount == 0 })
+        #expect(historicalPlans.allSatisfy { $0.paidPrincipal == $0.scheduledPrincipal })
+        #expect(historicalPlans.allSatisfy { $0.paidInterest == $0.scheduledInterest })
         #expect(managedPlans.first?.dueDate == date(2026, 5, 10))
         #expect((managedPlans.first?.remainingPrincipalBeforePayment ?? 0) < debt.originalPrincipal)
+    }
+
+    @Test
+    func autoDetectedInProgressLoansKeepOriginalContractSchedulesAcrossRepaymentMethods() throws {
+        let service = LoanDebtService()
+        let scheduleEngine = LoanScheduleEngine()
+        let today = date(2026, 4, 15)
+        let methods: [LoanRepaymentMethod] = [.equalPrincipal, .equalPayment, .interestFirst, .principalAtEnd]
+
+        for method in methods {
+            let input = LoanDebtInput(
+                name: method.rawValue,
+                creditorName: "Bank",
+                note: "",
+                entryMode: .newLoan,
+                repaymentMethod: method,
+                originalPrincipal: 1200,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2026, 1, 1),
+                endDate: date(2026, 6, 10),
+                repaymentDay: 10,
+                termCount: 0,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            )
+            let referenceDebt = LoanDebt(
+                name: method.rawValue,
+                creditorName: "Bank",
+                note: "",
+                entryMode: .newLoan,
+                repaymentMethod: method,
+                originalPrincipal: 1200,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2026, 1, 1),
+                endDate: date(2026, 6, 10),
+                repaymentDay: 10,
+                termCount: 1,
+                currencyCode: "USD"
+            )
+
+            let (_, debt, plans) = try service.createDebt(input, today: today)
+            let referencePlans = try scheduleEngine.generatePlans(for: referenceDebt)
+            let historicalPlans = plans.filter { $0.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason }
+            let openPlans = plans.filter { $0.lockReason != LoanScheduleEngine.autoSettledHistoryLockReason }
+            let referenceOpenPlans = referencePlans.filter { $0.dueDate >= date(2026, 5, 10) }
+
+            #expect(debt.entryMode == .inProgressLoan)
+            #expect(plans.count == referencePlans.count)
+            #expect(historicalPlans.isEmpty == false)
+            #expect(historicalPlans.allSatisfy { $0.status == .paid })
+            #expect(historicalPlans.allSatisfy { $0.paidPrincipal == $0.scheduledPrincipal })
+            #expect(historicalPlans.allSatisfy { $0.paidInterest == $0.scheduledInterest })
+            #expect(openPlans.map(\.dueDate) == referenceOpenPlans.map(\.dueDate))
+            #expect(openPlans.map(\.scheduledPrincipal) == referenceOpenPlans.map(\.scheduledPrincipal))
+            #expect(openPlans.map(\.scheduledInterest) == referenceOpenPlans.map(\.scheduledInterest))
+        }
+    }
+
+    @Test
+    func manualOverdueReopensAutoSettledHistoricalPlanAndRestoresOutstandingPrincipal() throws {
+        let service = LoanDebtService()
+        let today = date(2026, 4, 15)
+        let (_, debt, plans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Managed Loan",
+                creditorName: "Bank",
+                note: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPayment,
+                originalPrincipal: 1200,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2026, 1, 1),
+                endDate: date(2026, 6, 10),
+                repaymentDay: 10,
+                termCount: 0,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
+        )
+        let historicalPlan = try #require(plans.first { $0.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason })
+        let overdueAmount: Decimal = 80
+        let expectedInterest = minDecimal(overdueAmount, historicalPlan.scheduledInterest)
+        let expectedPrincipal = overdueAmount - expectedInterest
+        var overdues: [LoanOverdueRecord] = []
+
+        let (_, overdue) = try service.createManualOverdue(
+            debt: debt,
+            plan: historicalPlan,
+            plans: plans,
+            existingOverdues: &overdues,
+            input: LoanManualOverdueInput(
+                overdueAmount: overdueAmount,
+                overdueFee: 9,
+                penaltyInterest: 4,
+                startDate: historicalPlan.dueDate,
+                note: "history"
+            ),
+            today: today
+        )
+
+        #expect(overdue.overdueAmount == overdueAmount)
+        #expect(overdue.unpaidInterestAmount == expectedInterest)
+        #expect(overdue.unpaidPrincipalAmount == expectedPrincipal)
+        #expect(historicalPlan.remainingInterest == expectedInterest)
+        #expect(historicalPlan.remainingPrincipal == expectedPrincipal)
+        #expect(historicalPlan.remainingOverdueFee == 9)
+        #expect(historicalPlan.remainingPenaltyInterest == 4)
+        #expect(historicalPlan.status == .overdue)
+        #expect(debt.outstandingPrincipal == plans.reduce(Decimal(0)) { $0 + $1.remainingPrincipal })
+        #expect(debt.status == .overdue)
+
+        _ = try service.voidOverdue(
+            overdue,
+            plan: historicalPlan,
+            debt: debt,
+            plans: plans,
+            overdues: overdues,
+            status: .ignored,
+            today: date(2026, 4, 16)
+        )
+
+        #expect(historicalPlan.status == .paid)
+        #expect(historicalPlan.remainingTotalAmount == 0)
+        #expect(historicalPlan.paidPrincipal == historicalPlan.scheduledPrincipal)
+        #expect(historicalPlan.paidInterest == historicalPlan.scheduledInterest)
+        #expect(debt.outstandingPrincipal == plans.reduce(Decimal(0)) { $0 + $1.remainingPrincipal })
+    }
+
+    @Test
+    func closedManualOverdueKeepsChargesPayableDuringPaymentAllocation() throws {
+        let service = LoanDebtService()
+        let (_, debt, plans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Loan",
+                creditorName: "Bank",
+                note: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 100,
+                annualInterestRate: 0,
+                startDate: date(2026, 1, 1),
+                endDate: date(2026, 1, 10),
+                repaymentDay: 10,
+                termCount: 1,
+                currencyCode: "USD"
+            )
+        )
+        var overdues: [LoanOverdueRecord] = []
+        let (_, overdue) = try service.createManualOverdue(
+            debt: debt,
+            plan: plans[0],
+            plans: plans,
+            existingOverdues: &overdues,
+            input: LoanManualOverdueInput(
+                overdueAmount: 40,
+                overdueFee: 5,
+                penaltyInterest: 2,
+                startDate: date(2026, 1, 10),
+                endDate: date(2026, 1, 12),
+                note: "closed"
+            ),
+            today: date(2026, 1, 20)
+        )
+        var payments: [LoanPaymentRecord] = []
+        var allocations: [LoanPaymentAllocationDetail] = []
+
+        let (result, payment) = try service.recordPayment(
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            overdues: overdues,
+            input: LoanPaymentInput(paymentDate: date(2026, 1, 20), totalAmount: 47),
+            today: date(2026, 1, 20)
+        )
+
+        #expect(result == .recalculated)
+        #expect(payment != nil)
+        #expect(overdue.status == .paid)
+        #expect(plans[0].status == .paid)
+        #expect(plans[0].remainingTotalAmount == 0)
+        #expect(plans[0].paidOverdueFee == 5)
+        #expect(plans[0].paidPenaltyInterest == 2)
+        #expect(debt.outstandingPrincipal == 0)
     }
 
     @Test
@@ -702,8 +889,10 @@ struct BusinessLoopServiceTests {
         let (_, overdue) = try service.createManualOverdue(
             debt: debt,
             plan: plans[0],
+            plans: plans,
             existingOverdues: &overdues,
             input: LoanManualOverdueInput(
+                overdueAmount: plans[0].scheduledTotalAmount,
                 overdueFee: 7,
                 penaltyInterest: 3,
                 startDate: date(2026, 1, 12),
@@ -721,6 +910,7 @@ struct BusinessLoopServiceTests {
             plans: plans,
             overdues: overdues,
             input: LoanManualOverdueInput(
+                overdueAmount: plans[0].scheduledTotalAmount,
                 overdueFee: 8,
                 penaltyInterest: 4,
                 startDate: date(2026, 1, 12),
@@ -731,7 +921,9 @@ struct BusinessLoopServiceTests {
         )
         #expect(overdue.status == .closed)
         #expect(overdue.source == .userAdjusted)
-        #expect(plans[0].remainingOverdueFee == 0)
+        #expect(plans[0].remainingOverdueFee == 8)
+        #expect(plans[0].remainingPenaltyInterest == 4)
+        #expect(plans[0].status == .pending)
 
         _ = try service.voidOverdue(
             overdue,
@@ -743,6 +935,8 @@ struct BusinessLoopServiceTests {
             today: date(2026, 1, 21)
         )
         #expect(overdue.status == .ignored)
+        #expect(plans[0].remainingOverdueFee == 0)
+        #expect(plans[0].remainingPenaltyInterest == 0)
 
         let (_, rule) = try service.upsertCalculationRule(
             input: LoanCalculationRuleInput(

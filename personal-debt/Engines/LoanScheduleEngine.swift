@@ -16,8 +16,12 @@ struct LoanScheduleEngine {
         self.datePolicy = datePolicy
     }
 
-    func generatePlans(for debt: LoanDebt) throws -> [LoanRepaymentPlan] {
-        let planStartDate = planGenerationStartDate(for: debt)
+    func generatePlans(
+        for debt: LoanDebt,
+        preservingOriginalContractForInProgress: Bool = false
+    ) throws -> [LoanRepaymentPlan] {
+        let usesOriginalContractForInProgress = preservingOriginalContractForInProgress && debt.entryMode == .inProgressLoan
+        let planStartDate = usesOriginalContractForInProgress ? debt.startDate : planGenerationStartDate(for: debt)
         guard planStartDate <= debt.endDate else { throw LoanScheduleError.startDateAfterEndDate }
         guard (1...31).contains(debt.repaymentDay) else { throw LoanScheduleError.invalidRepaymentDay }
 
@@ -28,7 +32,7 @@ struct LoanScheduleEngine {
         )
 
         let historicalPlans: [LoanRepaymentPlan]
-        if debt.entryMode == .inProgressLoan {
+        if debt.entryMode == .inProgressLoan && usesOriginalContractForInProgress == false {
             let firstManagedDueDate = managedPeriods.first?.dueDate ?? debt.endDate
             historicalPlans = historicalPaidPlans(
                 debtID: debt.id,
@@ -41,7 +45,7 @@ struct LoanScheduleEngine {
         }
 
         let regularTermCount = max(managedPeriods.filter { $0.type == .regular }.count, 1)
-        let principal = debt.openingPrincipalForManagement
+        let principal = usesOriginalContractForInProgress ? debt.originalPrincipal : debt.openingPrincipalForManagement
         let monthlyRate = debt.annualInterestRate / Decimal(12)
         let equalPrincipalValues = roundingPolicy.allocateEvenly(total: principal, count: regularTermCount)
         let equalPaymentAmount = equalPayment(principal: principal, monthlyRate: monthlyRate, termCount: regularTermCount)
@@ -94,6 +98,10 @@ struct LoanScheduleEngine {
             )
             plans.append(plan)
             remainingPrincipal = afterScheduled
+        }
+
+        if usesOriginalContractForInProgress {
+            applyDefaultHistoricalSettlement(to: plans, debt: debt)
         }
 
         return plans
@@ -188,5 +196,35 @@ struct LoanScheduleEngine {
             plan.paidTotalAmount = 0
             return plan
         }
+    }
+
+    private func applyDefaultHistoricalSettlement(to plans: [LoanRepaymentPlan], debt: LoanDebt) {
+        guard debt.entryMode == .inProgressLoan else { return }
+        guard let managementStartDate = debt.managementStartDate else { return }
+
+        let managementDay = datePolicy.startOfDay(managementStartDate)
+        let firstDueAfterManagementStart = datePolicy.firstRepaymentDate(after: managementDay, dayOfMonth: debt.repaymentDay)
+        let cutoffDate = datePolicy.startOfDay(firstDueAfterManagementStart) > datePolicy.startOfDay(debt.endDate)
+            ? datePolicy.startOfDay(debt.endDate)
+            : datePolicy.startOfDay(firstDueAfterManagementStart)
+
+        for plan in plans where datePolicy.startOfDay(plan.dueDate) < cutoffDate {
+            applyDefaultPaidState(to: plan)
+        }
+    }
+
+    private func applyDefaultPaidState(to plan: LoanRepaymentPlan) {
+        plan.lockReason = Self.autoSettledHistoryLockReason
+        plan.status = .paid
+        plan.remainingPrincipal = 0
+        plan.remainingInterest = 0
+        plan.remainingOverdueFee = 0
+        plan.remainingPenaltyInterest = 0
+        plan.remainingTotalAmount = 0
+        plan.paidPrincipal = plan.scheduledPrincipal
+        plan.paidInterest = plan.scheduledInterest
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.paidTotalAmount = plan.scheduledTotalAmount
     }
 }

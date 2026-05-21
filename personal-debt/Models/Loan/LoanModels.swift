@@ -247,6 +247,9 @@ final class LoanOverdueRecord {
     var overdueEndDate: Date?
     var overdueDays: Int
     var overdueBaseAmount: Decimal
+    var overdueAmount: Decimal
+    var unpaidInterestAmount: Decimal
+    var unpaidPrincipalAmount: Decimal
     var overdueFee: Decimal
     var penaltyInterest: Decimal
     var generatesOverdueFee: Bool
@@ -278,6 +281,9 @@ final class LoanOverdueRecord {
         overdueEndDate: Date? = nil,
         overdueDays: Int,
         overdueBaseAmount: Decimal = 0,
+        overdueAmount: Decimal = 0,
+        unpaidInterestAmount: Decimal = 0,
+        unpaidPrincipalAmount: Decimal = 0,
         overdueFee: Decimal = 0,
         penaltyInterest: Decimal = 0,
         generatesOverdueFee: Bool = true,
@@ -298,6 +304,9 @@ final class LoanOverdueRecord {
         self.overdueEndDate = overdueEndDate
         self.overdueDays = overdueDays
         self.overdueBaseAmount = overdueBaseAmount
+        self.overdueAmount = overdueAmount
+        self.unpaidInterestAmount = unpaidInterestAmount
+        self.unpaidPrincipalAmount = unpaidPrincipalAmount
         self.overdueFee = overdueFee
         self.penaltyInterest = penaltyInterest
         self.generatesOverdueFee = generatesOverdueFee

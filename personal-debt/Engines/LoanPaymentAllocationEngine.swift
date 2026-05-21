@@ -24,7 +24,7 @@ struct LoanPaymentAllocationEngine {
         overdues: [LoanOverdueRecord],
         paymentDate: Date
     ) -> Decimal {
-        let overduePlanIDs = Set(overdues.filter { $0.status == .active }.map(\.planID))
+        let overduePlanIDs = Set(restorableOverdues(overdues).map(\.planID))
         let overdueAmount = plans
             .filter { overduePlanIDs.contains($0.id) }
             .reduce(Decimal(0)) { partial, plan in
@@ -79,47 +79,30 @@ struct LoanPaymentAllocationEngine {
     private func reset(plans: [LoanRepaymentPlan], overdues: [LoanOverdueRecord]) {
         for plan in plans {
             if plan.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason {
-                let keepsScheduledAmountsAsPaid = plan.scheduledTotalAmount > 0
-                plan.paidPrincipal = keepsScheduledAmountsAsPaid ? plan.scheduledPrincipal : 0
-                plan.paidInterest = keepsScheduledAmountsAsPaid ? plan.scheduledInterest : 0
-                plan.paidOverdueFee = 0
-                plan.paidPenaltyInterest = 0
-                plan.paidTotalAmount = keepsScheduledAmountsAsPaid ? plan.scheduledTotalAmount : 0
-                plan.remainingPrincipal = 0
-                plan.remainingInterest = 0
-                plan.remainingOverdueFee = 0
-                plan.remainingPenaltyInterest = 0
-                plan.remainingTotalAmount = 0
-                plan.status = .paid
-                continue
+                applyDefaultHistoricalBaseline(to: plan)
+            } else {
+                applyDefaultContractBaseline(to: plan)
             }
-            plan.paidPrincipal = 0
-            plan.paidInterest = 0
-            plan.paidOverdueFee = 0
-            plan.paidPenaltyInterest = 0
-            plan.paidTotalAmount = 0
-            plan.remainingPrincipal = plan.scheduledPrincipal
-            plan.remainingInterest = plan.scheduledInterest
-            plan.remainingOverdueFee = 0
-            plan.remainingPenaltyInterest = 0
-            plan.remainingTotalAmount = plan.scheduledTotalAmount
-            plan.status = .pending
         }
 
-        for overdue in overdues {
+        for overdue in restorableOverdues(overdues) {
             overdue.paidOverdueFee = 0
             overdue.paidPenaltyInterest = 0
-            if let plan = plans.first(where: { $0.id == overdue.planID }) {
-                plan.remainingOverdueFee = overdue.overdueFee
-                plan.remainingPenaltyInterest = overdue.penaltyInterest
-                plan.remainingTotalAmount = plan.remainingPrincipal + plan.remainingInterest + overdue.overdueFee + overdue.penaltyInterest
-                plan.status = .overdue
+            guard let plan = plans.first(where: { $0.id == overdue.planID }) else { continue }
+            if overdue.isUserManaged {
+                applyManualOverdueBaseline(to: plan, overdue: overdue)
             }
+            plan.overdueStartDate = overdue.overdueStartDate
+            plan.overdueDays = overdue.overdueDays
+            plan.remainingOverdueFee = overdue.overdueFee
+            plan.remainingPenaltyInterest = overdue.penaltyInterest
+            plan.remainingTotalAmount = plan.remainingPrincipal + plan.remainingInterest + overdue.overdueFee + overdue.penaltyInterest
+            plan.status = restoredPlanStatus(for: plan, overdueStatus: overdue.status)
         }
     }
 
     private func plansForOverdueAllocation(plans: [LoanRepaymentPlan], overdues: [LoanOverdueRecord]) -> [LoanRepaymentPlan] {
-        let activeOverdues = overdues.filter { $0.status == .active }
+        let activeOverdues = restorableOverdues(overdues)
         return plans
             .filter { plan in activeOverdues.contains(where: { $0.planID == plan.id }) }
             .sorted { lhs, rhs in
@@ -138,7 +121,7 @@ struct LoanPaymentAllocationEngine {
         overdues: [LoanOverdueRecord],
         paymentDate: Date
     ) -> [LoanRepaymentPlan] {
-        let overduePlanIDs = Set(overdues.filter { $0.status == .active }.map(\.planID))
+        let overduePlanIDs = Set(restorableOverdues(overdues).map(\.planID))
         return plans
             .filter {
                 $0.dueDate <= paymentDate
@@ -308,9 +291,67 @@ struct LoanPaymentAllocationEngine {
             } else if overdue.status == .closed {
                 plan.status = plan.paidTotalAmount > 0 ? .partiallyPaid : .pending
             } else if overdue.status == .active {
-                plan.status = plan.paidTotalAmount > 0 ? .partiallyPaid : .overdue
+                plan.status = overdue.isUserManaged ? .overdue : (plan.paidTotalAmount > 0 ? .partiallyPaid : .overdue)
             }
         }
+    }
+
+    private func restorableOverdues(_ overdues: [LoanOverdueRecord]) -> [LoanOverdueRecord] {
+        overdues.filter { ![.ignored, .voided, .waived].contains($0.status) }
+    }
+
+    private func applyDefaultHistoricalBaseline(to plan: LoanRepaymentPlan) {
+        plan.paidPrincipal = plan.scheduledPrincipal
+        plan.paidInterest = plan.scheduledInterest
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.paidTotalAmount = plan.scheduledTotalAmount
+        plan.remainingPrincipal = 0
+        plan.remainingInterest = 0
+        plan.remainingOverdueFee = 0
+        plan.remainingPenaltyInterest = 0
+        plan.remainingTotalAmount = 0
+        plan.status = .paid
+    }
+
+    private func applyDefaultContractBaseline(to plan: LoanRepaymentPlan) {
+        plan.paidPrincipal = 0
+        plan.paidInterest = 0
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.paidTotalAmount = 0
+        plan.remainingPrincipal = plan.scheduledPrincipal
+        plan.remainingInterest = plan.scheduledInterest
+        plan.remainingOverdueFee = 0
+        plan.remainingPenaltyInterest = 0
+        plan.remainingTotalAmount = plan.scheduledTotalAmount
+        plan.status = .pending
+    }
+
+    private func applyManualOverdueBaseline(to plan: LoanRepaymentPlan, overdue: LoanOverdueRecord) {
+        plan.paidInterest = roundingPolicy.round(maxDecimal(plan.scheduledInterest - overdue.unpaidInterestAmount, 0))
+        plan.paidPrincipal = roundingPolicy.round(maxDecimal(plan.scheduledPrincipal - overdue.unpaidPrincipalAmount, 0))
+        plan.paidOverdueFee = 0
+        plan.paidPenaltyInterest = 0
+        plan.paidTotalAmount = plan.paidPrincipal + plan.paidInterest
+        plan.remainingInterest = overdue.unpaidInterestAmount
+        plan.remainingPrincipal = overdue.unpaidPrincipalAmount
+    }
+
+    private func restoredPlanStatus(
+        for plan: LoanRepaymentPlan,
+        overdueStatus: LoanOverdueRecordStatus
+    ) -> PlanStatus {
+        if plan.remainingTotalAmount == 0 {
+            return .paid
+        }
+        if overdueStatus == .active {
+            return .overdue
+        }
+        if plan.paidTotalAmount > 0 {
+            return .partiallyPaid
+        }
+        return .pending
     }
 
     private func take(from paymentAmount: inout Decimal, remainingBucket: inout Decimal) -> Decimal {
