@@ -13,6 +13,21 @@ struct StrategySimulationTests {
         Calendar(identifier: .gregorian).date(from: DateComponents(year: year, month: month, day: day)) ?? Date()
     }
 
+    private func expectDebtServiceValidation(_ work: () throws -> Void) {
+        do {
+            try work()
+            #expect(Bool(false))
+        } catch let error as DebtServiceError {
+            if case .validationFailed = error {
+                #expect(Bool(true))
+            } else {
+                #expect(Bool(false))
+            }
+        } catch {
+            #expect(Bool(false))
+        }
+    }
+
     private func strategySchema() -> Schema {
         Schema([
             CreditCardDebt.self,
@@ -286,14 +301,16 @@ struct StrategySimulationTests {
             strategyDate: date(2026, 5, 16),
             monthlyBudget: 100
         )
-        let debt = StrategyDebtSnapshot(
-            debtType: .personalLending,
+        let debt = PersonalLendingDebt(
             name: "Friend",
-            remainingAmount: 300,
-            minimumPaymentAmount: 0
+            principalAmount: 300,
+            borrowedDate: date(2026, 5, 1),
+            repaymentMethod: .noFixedPlan
         )
+        context.insert(debt)
+        try context.save()
 
-        let preview = try service.generateComparison(request: request, debtSnapshots: [debt])
+        let preview = try service.previewComparison(request: request)
 
         #expect(try context.fetch(FetchDescriptor<StrategyComparisonBatch>()).isEmpty)
         #expect(try context.fetch(FetchDescriptor<StrategySimulation>()).isEmpty)
@@ -305,11 +322,22 @@ struct StrategySimulationTests {
         let allocations = try context.fetch(FetchDescriptor<StrategyDebtAllocation>())
 
         #expect(saved.comparisonBatch.recommendedStrategy == .snowball)
+        #expect(saved.simulations.count == 1)
+        #expect(saved.simulations.first?.simulation.strategyType == .snowball)
         #expect(batches.count == 1)
         #expect(batches.first?.recommendedStrategy == .snowball)
-        #expect(simulations.count == 3)
+        #expect(simulations.count == 1)
+        #expect(simulations.first?.strategyType == .snowball)
         #expect(monthSnapshots.isEmpty == false)
         #expect(allocations.isEmpty == false)
+        #expect(monthSnapshots.allSatisfy { $0.simulationID == simulations.first?.id })
+        #expect(allocations.allSatisfy { $0.simulationID == simulations.first?.id })
+
+        var missingSelected = preview
+        missingSelected.simulations.removeAll { $0.simulation.strategyType == .balanced }
+        expectDebtServiceValidation {
+            _ = try service.saveComparisonResult(missingSelected, selectedStrategy: .balanced)
+        }
     }
 
     @Test
@@ -374,5 +402,265 @@ struct StrategySimulationTests {
         #expect(costEvents.isEmpty == false)
         #expect(statement.remainingAmount == 400)
         #expect(statement.status == .pending)
+    }
+
+    @Test
+    func strategyServiceBuildsLoanAndPersonalSnapshotsFromPlansAndFallbackBalances() throws {
+        let loanService = LoanDebtService()
+        let (_, loan, loanPlans) = try loanService.createDebt(
+            LoanDebtInput(
+                name: "Loan",
+                creditorName: "Bank",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 600,
+                openingPrincipalForManagement: nil,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2026, 1, 1),
+                managementStartDate: nil,
+                endDate: date(2026, 3, 10),
+                repaymentDay: 10,
+                termCount: 3,
+                currencyCode: "USD"
+            )
+        )
+        loanPlans[0].status = .overdue
+        loanPlans[0].overdueDays = 4
+        loanPlans[0].remainingOverdueFee = 6
+        loanPlans[0].remainingPenaltyInterest = 2
+        loanPlans[0].remainingTotalAmount = loanPlans[0].remainingPrincipal + loanPlans[0].remainingInterest + 8
+        let loanRule = LoanCalculationRule(
+            debtID: loan.id,
+            overdueFeeMode: .fixed,
+            fixedOverdueFee: 6,
+            penaltyInterestMode: .fixedDailyRate,
+            fixedPenaltyDailyRate: decimal("0.001")
+        )
+        let globalRule = LoanCalculationRule.builtInDefault(now: date(2026, 1, 1))
+
+        let planPersonal = PersonalLendingDebt(
+            name: "Installment Friend",
+            lenderName: "Alex",
+            principalAmount: 900,
+            fixedInterestAmount: 90,
+            borrowedDate: date(2026, 1, 1),
+            agreedEndDate: date(2026, 6, 10),
+            repaymentMethod: .equalPrincipalEqualInterest,
+            isInterestBearing: true,
+            monthlyRepaymentDay: 10,
+            termCount: 6
+        )
+        let personalPlan = PersonalLendingPlan(
+            debtID: planPersonal.id,
+            periodIndex: 1,
+            dueDate: date(2026, 4, 10),
+            scheduledPrincipal: 150,
+            scheduledInterest: 15,
+            paidAmount: 0,
+            status: .pending
+        )
+        let openPersonal = PersonalLendingDebt(
+            name: "Open Friend",
+            lenderName: "Sam",
+            principalAmount: 500,
+            fixedInterestAmount: 0,
+            borrowedDate: date(2026, 1, 1),
+            agreedEndDate: nil,
+            repaymentMethod: .noFixedPlan,
+            isInterestBearing: false,
+            monthlyRepaymentDay: nil,
+            termCount: 0
+        )
+        let paidLoan = LoanDebt(
+            name: "Paid Loan",
+            creditorName: "",
+            repaymentMethod: .equalPrincipal,
+            originalPrincipal: 100,
+            annualInterestRate: 0,
+            startDate: date(2026, 1, 1),
+            endDate: date(2026, 1, 10),
+            repaymentDay: 10,
+            termCount: 1,
+            status: .paidOff
+        )
+
+        let service = StrategySimulationService()
+        let snapshots = service.makeDebtSnapshots(
+            request: StrategySimulationRequest(
+                strategyDate: date(2026, 5, 16),
+                monthlyBudget: 300
+            ),
+            creditCardDebts: [],
+            creditCardStatements: [],
+            creditCardRules: [],
+            loanDebts: [loan, paidLoan],
+            loanPlans: loanPlans,
+            loanRules: [globalRule, loanRule],
+            personalLendingDebts: [planPersonal, openPersonal],
+            personalLendingPlans: [personalPlan]
+        )
+
+        let loanSnapshot = try #require(snapshots.first { $0.id == loan.id })
+        #expect(loanSnapshot.debtType == .loan)
+        #expect(loanSnapshot.isOverdue)
+        #expect(loanSnapshot.riskWeight == 2)
+        #expect(loanSnapshot.plans.isEmpty == false)
+        #expect(loanSnapshot.loanFixedOverdueFee == 6)
+        #expect(loanSnapshot.fixedPenaltyDailyRate == decimal("0.001"))
+        #expect(loanSnapshot.minimumPaymentAmount > 0)
+
+        let plannedPersonalSnapshot = try #require(snapshots.first { $0.id == planPersonal.id })
+        #expect(plannedPersonalSnapshot.debtType == .personalLending)
+        #expect(plannedPersonalSnapshot.dataSource == "personalLendingPlan")
+        #expect(plannedPersonalSnapshot.minimumPaymentAmount == personalPlan.remainingAmount)
+        #expect(plannedPersonalSnapshot.isOverdue)
+
+        let openPersonalSnapshot = try #require(snapshots.first { $0.id == openPersonal.id })
+        #expect(openPersonalSnapshot.dataSource == "personalLendingBalance")
+        #expect(openPersonalSnapshot.minimumPaymentAmount == 0)
+        #expect(openPersonalSnapshot.userRiskNotes.isEmpty == false)
+        #expect(snapshots.contains { $0.id == paidLoan.id } == false)
+    }
+
+    @Test
+    func strategyEngineSurfacesCreditCardCostAndFallbackRiskBranches() throws {
+        let card = StrategyDebtSnapshot(
+            debtType: .creditCard,
+            name: "Risky Card",
+            remainingAmount: 1000,
+            minimumPaymentAmount: 100,
+            dueDate: date(2026, 5, 10),
+            dataSource: "fallbackStatement",
+            isFallbackData: true,
+            isOverdue: true,
+            overdueDays: 15,
+            userRiskNotes: ["Confirm issuer balance before acting."],
+            revolvingInterestEnabled: true,
+            revolvingDailyRate: decimal("0.002"),
+            overdueFeeRate: decimal("0.01"),
+            minimumOverdueFee: 25,
+            fixedOverdueFee: 40,
+            penaltyDailyRate: decimal("0.001"),
+            penaltyBaseUsesStatementAmount: true
+        )
+
+        let result = try StrategySimulationEngine().generateComparison(
+            request: StrategySimulationRequest(strategyDate: date(2026, 5, 19), monthlyBudget: 0),
+            debts: [card]
+        )
+        let avalanche = try #require(result.simulations.first { $0.simulation.strategyType == .avalanche })
+        let eventTypes = Set(avalanche.costEvents.map(\.eventType))
+        let riskTypes = Set(avalanche.riskEvents.map(\.eventType))
+
+        #expect(eventTypes.contains(.creditCardMinimumPaymentProtection))
+        #expect(eventTypes.contains(.creditCardRevolvingInterestProtection))
+        #expect(eventTypes.contains(.creditCardExistingOverduePenalty))
+        #expect(avalanche.costEvents.contains { $0.realizedCost > 0 })
+        #expect(riskTypes.contains(.fallbackDataUsed))
+        #expect(riskTypes.contains(.missingRepaymentPlan))
+        #expect(result.comparisonBatch.globalRiskNotes.contains { $0.contains("fallback") || $0.contains("estimated") })
+        #expect(result.recommendedSimulation != nil)
+    }
+
+    @Test
+    func strategyEngineTieBreaksByDueDateAndSortsPlanStates() {
+        let late = StrategyDebtSnapshot(
+            debtType: .personalLending,
+            name: "Late",
+            remainingAmount: 100,
+            minimumPaymentAmount: 0,
+            dueDate: date(2026, 7, 1)
+        )
+        let early = StrategyDebtSnapshot(
+            debtType: .personalLending,
+            name: "Early",
+            remainingAmount: 100,
+            minimumPaymentAmount: 0,
+            dueDate: date(2026, 6, 1)
+        )
+        let noDue = StrategyDebtSnapshot(
+            debtType: .personalLending,
+            name: "No Due",
+            remainingAmount: 100,
+            minimumPaymentAmount: 0,
+            dueDate: nil
+        )
+        let plannedLoan = StrategyDebtSnapshot(
+            debtType: .loan,
+            name: "Planned",
+            remainingAmount: 120,
+            minimumPaymentAmount: 0,
+            dueDate: date(2026, 6, 30),
+            plans: [
+                StrategyPlanSnapshot(
+                    periodIndex: 2,
+                    dueDate: date(2026, 7, 10),
+                    remainingAmount: 60,
+                    remainingPrincipal: 50,
+                    remainingInterest: 10
+                ),
+                StrategyPlanSnapshot(
+                    periodIndex: 1,
+                    dueDate: date(2026, 6, 10),
+                    remainingAmount: 60,
+                    remainingPrincipal: 50,
+                    remainingInterest: 10
+                ),
+            ]
+        )
+
+        let snowball = StrategySimulationEngine().generateSimulation(
+            name: "Snowball tie",
+            strategyType: .snowball,
+            monthlyBudget: 50,
+            debts: [noDue, late, early]
+        )
+        let avalanche = StrategySimulationEngine().generateSimulation(
+            name: "Avalanche tie",
+            strategyType: .avalanche,
+            monthlyBudget: 50,
+            debts: [late, noDue, early]
+        )
+        let planned = StrategySimulationEngine().generateSimulation(
+            name: "Plan sorting",
+            strategyType: .snowball,
+            monthlyBudget: 70,
+            debts: [plannedLoan]
+        )
+
+        #expect(snowball.allocations.first?.sourceDebtID == early.id)
+        #expect(avalanche.allocations.first?.sourceDebtID == early.id)
+        #expect(planned.allocations.first?.remainingAmountAfterPayment == 50)
+        #expect(planned.simulation.status == .completed)
+    }
+
+    @Test
+    func strategyComparisonRecommendedSimulationReturnsNilWhenNoMatch() {
+        let batch = StrategyComparisonBatch(
+            strategyDate: date(2026, 5, 19),
+            monthlyBudget: 100,
+            maxMonths: 12,
+            recommendedStrategy: .balanced
+        )
+        let output = StrategySimulationEngine().generateSimulation(
+            name: "Only snowball",
+            strategyType: .snowball,
+            monthlyBudget: 100,
+            debts: [
+                StrategyDebtSnapshot(
+                    debtType: .loan,
+                    name: "Loan",
+                    remainingAmount: 100,
+                    minimumPaymentAmount: 0
+                )
+            ]
+        )
+        let result = StrategyComparisonResult(
+            comparisonBatch: batch,
+            simulations: [output],
+            riskEvents: []
+        )
+
+        #expect(result.recommendedSimulation == nil)
     }
 }

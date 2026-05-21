@@ -1145,6 +1145,22 @@
         }
       }
     },
+    "error.defaultRuleCannotBeDeleted" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default calculation rules cannot be deleted."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认计算规则不能删除。"
+          }
+        }
+      }
+    },
     "error.loanCoreLockedAfterPayment" : {
       "localizations" : {
         "en" : {
@@ -2614,6 +2630,74 @@
         }
       }
     },
+    "metric.cumulativePaid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cumulative paid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "累计已还"
+          }
+        }
+      }
+    },
+    "metric.currentMonthPaid" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current month paid"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "本月已还"
+          }
+        }
+      }
+    },
+    "metric.debtCount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debt count"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "债务数量"
+          }
+        }
+      }
+    },
+    "metric.fixedDebt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Fixed debt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "固定债务"
+          }
+        }
+      }
+    },
     "metric.monthPaid" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2733,6 +2817,40 @@
         }
       }
     },
+    "metric.overdueRisk" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risk level"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "风险等级"
+          }
+        }
+      }
+    },
+    "metric.revolvingDebt" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Revolving debt"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "循环债务"
+          }
+        }
+      }
+    },
     "metric.totalRemaining" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -2746,40 +2864,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "剩余总额"
-          }
-        }
-      }
-    },
-    "onboarding.budgetCopy" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "This is used for strategy generation and monthly planning. You can change it later."
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "它会用于生成策略和月度计划，之后也可以随时修改。"
-          }
-        }
-      }
-    },
-    "onboarding.budgetTitle" : {
-      "extractionState" : "stale",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Set a monthly repayment budget"
-          }
-        },
-        "zh-Hans" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "设置每月还款预算"
           }
         }
       }
@@ -3000,6 +3084,74 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "汇总"
+          }
+        }
+      }
+    },
+    "overdueRisk.critical" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Critical"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "严重"
+          }
+        }
+      }
+    },
+    "overdueRisk.high" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "High"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "高"
+          }
+        }
+      }
+    },
+    "overdueRisk.medium" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medium"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "中"
+          }
+        }
+      }
+    },
+    "overdueRisk.none" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "None"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "无"
           }
         }
       }
@@ -3802,6 +3954,40 @@
         }
       }
     },
+    "rules.currentSource" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Current source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "当前来源"
+          }
+        }
+      }
+    },
+    "rules.customCreditCardRule" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom credit card rule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "已设置自定义信用卡规则"
+          }
+        }
+      }
+    },
     "rules.customLoanRule" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3819,6 +4005,23 @@
         }
       }
     },
+    "rules.customRule" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Custom rule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "自定义规则"
+          }
+        }
+      }
+    },
     "rules.dailyRatePercent" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -3832,6 +4035,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "日利率（%）"
+          }
+        }
+      }
+    },
+    "rules.debtRuleHint" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Saving here creates or updates a rule only for this debt. Restoring default removes the custom rule."
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "在这里保存只会创建或更新这笔债务的规则。恢复默认会移除自定义规则。"
+          }
+        }
+      }
+    },
+    "rules.defaultRule" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Default rule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "默认规则"
           }
         }
       }
@@ -3883,6 +4120,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "固定罚息日利率（%）"
+          }
+        }
+      }
+    },
+    "rules.globalCreditCardDefault" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Global Credit Card Default"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信用卡全局默认规则"
+          }
+        }
+      }
+    },
+    "rules.globalCreditCardSubtitle" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Used when a card has no custom rule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "信用卡未设置自定义规则时使用"
           }
         }
       }
@@ -4193,6 +4464,23 @@
         }
       }
     },
+    "rules.restoreDefault" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore Default Rule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "恢复默认规则"
+          }
+        }
+      }
+    },
     "rules.revolvingEnabled" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4227,6 +4515,23 @@
         }
       }
     },
+    "rules.source" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rule Source"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "规则来源"
+          }
+        }
+      }
+    },
     "rules.usesGlobalRule" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -4240,6 +4545,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "使用全局或内置默认规则"
+          }
+        }
+      }
+    },
+    "rules.usingDefaultRule" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Using default rule"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "使用默认规则"
           }
         }
       }
@@ -5344,6 +5666,159 @@
         }
       }
     },
+    "statistics.dimension.debtFixedRevolving" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debt · Fixed/Revolving"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "债务 · 固定/循环"
+          }
+        }
+      }
+    },
+    "statistics.dimension.debtStatusCount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debt · Status count"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "债务 · 状态数量"
+          }
+        }
+      }
+    },
+    "statistics.dimension.debtTypeBalance" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Debt · Type balance"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "债务 · 类型余额"
+          }
+        }
+      }
+    },
+    "statistics.dimension.overdueAging" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue · Aging"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期 · 账龄分布"
+          }
+        }
+      }
+    },
+    "statistics.dimension.overdueByType" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue · Amount by type"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期 · 类型金额"
+          }
+        }
+      }
+    },
+    "statistics.dimension.overdueCostComposition" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue · Cost composition"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期 · 成本构成"
+          }
+        }
+      }
+    },
+    "statistics.dimension.paymentByType" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transactions · Payment by type"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流水 · 类型还款"
+          }
+        }
+      }
+    },
+    "statistics.dimension.paymentDebtRanking" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transactions · Debt ranking"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流水 · 债务排行"
+          }
+        }
+      }
+    },
+    "statistics.dimension.paymentMonthlyTrend" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Transactions · Monthly trend"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "流水 · 月度趋势"
+          }
+        }
+      }
+    },
     "statistics.emptyChart" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -5646,6 +6121,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "最大单笔债务"
+          }
+        }
+      }
+    },
+    "statistics.metric" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Statistic"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "统计项"
           }
         }
       }
@@ -6092,6 +6584,23 @@
         }
       }
     },
+    "statistics.recordCount" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Records"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "记录数"
+          }
+        }
+      }
+    },
     "statistics.revolvingDebt" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6190,6 +6699,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "摘要"
+          }
+        }
+      }
+    },
+    "statistics.topPaymentTarget" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Top payment target"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "最高还款对象"
           }
         }
       }
@@ -6428,6 +6954,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "输入预算后可比较雪球法、雪崩法和均衡策略。"
+          }
+        }
+      }
+    },
+    "strategy.extraPayment" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Extra Payment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "额外还款"
           }
         }
       }
@@ -6755,6 +7298,23 @@
         }
       }
     },
+    "strategy.overdueCostAndRisk" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Overdue Cost / Risk"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "逾期成本/风险"
+          }
+        }
+      }
+    },
     "strategy.payoffMonth" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -6836,6 +7396,40 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "推荐策略"
+          }
+        }
+      }
+    },
+    "strategy.remainingAfterPayment" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Remaining After Payment"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "还款后剩余"
+          }
+        }
+      }
+    },
+    "strategy.riskNotes" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Risk Notes"
+          }
+        },
+        "zh-Hans" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "风险提醒"
           }
         }
       }

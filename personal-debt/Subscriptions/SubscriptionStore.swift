@@ -276,3 +276,14 @@ struct SubscriptionMessage: Identifiable {
     let title: String
     let detail: String
 }
+
+#if DEBUG
+extension SubscriptionStore {
+    func debugShouldReplaceActiveSubscription(
+        current: ActiveSubscription?,
+        candidate: ActiveSubscription
+    ) -> Bool {
+        shouldReplaceActiveSubscription(current: current, candidate: candidate)
+    }
+}
+#endif

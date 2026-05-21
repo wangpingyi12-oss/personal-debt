@@ -175,7 +175,7 @@ struct DebtReadService {
             statements: debtStatements,
             payments: payments.filter { $0.debtID == debt.id && $0.isActive }.sorted { $0.paymentDate > $1.paymentDate },
             overdues: overdues.filter { $0.debtID == debt.id && $0.status != .voided }.sorted { $0.startDate > $1.startDate },
-            rule: rules.sorted { $0.debtID.uuidString < $1.debtID.uuidString }.first { $0.debtID == debt.id }
+            rule: rules.first { $0.debtID == debt.id }
         )
     }
 

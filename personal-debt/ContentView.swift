@@ -22,6 +22,9 @@ struct ContentView: View {
         .task {
             ensureSettings()
             await subscriptionStore.start()
+            if subscriptionStore.hasFullAccess {
+                try? DefaultCalculationRuleSeeder.ensureSeeded(in: modelContext)
+            }
         }
         .alert(item: $subscriptionStore.message) { message in
             Alert(
@@ -35,7 +38,7 @@ struct ContentView: View {
     private func ensureSettings() {
         let shouldSkipOnboarding = ProcessInfo.processInfo.arguments.contains("-UITestSkipOnboarding")
         #if DEBUG
-        if UITestDebtScenarioSeeder.resetDataOnlyIfRequested(modelContext: modelContext, onboardingCompleted: shouldSkipOnboarding) {
+        if UITestDataResetter.resetDataOnlyIfRequested(modelContext: modelContext, onboardingCompleted: shouldSkipOnboarding) {
             return
         }
         #endif
@@ -45,17 +48,11 @@ struct ContentView: View {
                 existing.updatedAt = Date()
                 try? modelContext.save()
             }
-            #if DEBUG
-            UITestDebtScenarioSeeder.prepareIfRequested(modelContext: modelContext)
-            #endif
             return
         }
         modelContext.insert(AppUserSettings(onboardingCompleted: shouldSkipOnboarding))
         do {
             try modelContext.save()
-            #if DEBUG
-            UITestDebtScenarioSeeder.prepareIfRequested(modelContext: modelContext)
-            #endif
         } catch {
             assertionFailure("Could not create app settings: \(error)")
         }

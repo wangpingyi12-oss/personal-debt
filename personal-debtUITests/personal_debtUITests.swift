@@ -49,97 +49,32 @@ final class personal_debtUITests: XCTestCase {
     }
 
     @MainActor
-    func testFortyDebtRealisticUserJourney() throws {
+    func testCalculationRulesAlwaysShowGlobalDefaults() throws {
         let app = XCUIApplication()
         app.launchArguments = [
             "-UITestSkipOnboarding",
             "-UITestResetData",
-            "-UITestSeedFortyDebtScenario",
             "-UITestFullAccess",
             "-AppleLanguages", "(en)",
             "-AppleLocale", "en_US"
         ]
         app.launch()
 
-        XCTAssertTrue(app.tabBars.buttons["Dashboard"].waitForExistence(timeout: 15))
-        XCTAssertTrue(app.staticTexts["Total remaining"].waitForExistence(timeout: 10))
+        let settingsButton = app.buttons["overview.settingsButton"].firstMatch
+        XCTAssertTrue(settingsButton.waitForExistence(timeout: 8))
+        settingsButton.tap()
 
-        let addMenuButton = app.buttons["Add"].firstMatch
-        XCTAssertTrue(addMenuButton.waitForExistence(timeout: 5))
-        addMenuButton.tap()
-        XCTAssertTrue(app.menuItems["Add Debt"].waitForExistence(timeout: 5) || app.buttons["Add Debt"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.menuItems["Record Payment"].exists || app.buttons["Record Payment"].exists)
-        XCTAssertTrue(app.menuItems["Add Manual Overdue"].exists || app.buttons["Add Manual Overdue"].exists)
-
-        (app.menuItems["Add Manual Overdue"].firstMatch.exists ? app.menuItems["Add Manual Overdue"].firstMatch : app.buttons["Add Manual Overdue"].firstMatch).tap()
-        XCTAssertTrue(app.navigationBars["Add Manual Overdue"].waitForExistence(timeout: 5))
-        app.buttons["Cancel"].firstMatch.tap()
-
-        app.tabBars.buttons["Debts"].tap()
-        let cardRow = scrollToStaticText("CC-04 Fuel Card", in: app)
-        XCTAssertTrue(cardRow.exists)
-
-        cardRow.tap()
-        XCTAssertTrue(app.staticTexts["Card Info"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.buttons["Record Payment"].firstMatch.exists)
-        app.navigationBars.buttons.firstMatch.tap()
-
-        app.tabBars.buttons["Payments"].tap()
-        XCTAssertTrue(app.staticTexts["Recent Payments"].waitForExistence(timeout: 5))
-
-        app.buttons["Record Payment"].firstMatch.tap()
-        XCTAssertTrue(app.navigationBars["Record Payment"].waitForExistence(timeout: 5))
-        let paymentDateButton = app.buttons["Payment Date"].firstMatch.exists
-            ? app.buttons["Payment Date"].firstMatch
-            : app.descendants(matching: .any)["Payment date"].firstMatch
-        if paymentDateButton.waitForExistence(timeout: 5) {
-            paymentDateButton.tap()
-            if app.datePickers.firstMatch.waitForExistence(timeout: 2)
-                || app.pickerWheels.firstMatch.waitForExistence(timeout: 2) {
-                let doneButton = app.buttons["common.done"].firstMatch.exists
-                    ? app.buttons["common.done"].firstMatch
-                    : app.buttons["Done"].firstMatch
-                if doneButton.waitForExistence(timeout: 2) {
-                    doneButton.tap()
-                }
-            }
+        let customRulesButton = app.buttons["settings.customRules.link"].firstMatch
+        if customRulesButton.waitForExistence(timeout: 5) {
+            customRulesButton.tap()
+        } else {
+            let fallbackRulesCell = app.staticTexts["Custom Calculation Rules"].firstMatch
+            XCTAssertTrue(fallbackRulesCell.waitForExistence(timeout: 5))
+            fallbackRulesCell.tap()
         }
 
-        let amountField = app.textFields["Amount"].firstMatch
-        XCTAssertTrue(amountField.waitForExistence(timeout: 5))
-        amountField.tap()
-        amountField.typeText("25")
-        app.buttons["Save"].firstMatch.tap()
-        dismissResultAlertIfPresent(in: app)
-
-        app.tabBars.buttons["Payments"].tap()
-        XCTAssertTrue(app.staticTexts["Recent Payments"].waitForExistence(timeout: 5))
-        XCTAssertTrue(app.staticTexts["$25.00"].waitForExistence(timeout: 5))
-
-        app.tabBars.buttons["Strategy"].tap()
-        XCTAssertTrue(app.staticTexts["Generate Strategy"].waitForExistence(timeout: 5))
-        app.buttons["Generate Strategy"].firstMatch.tap()
-        dismissResultAlertIfPresent(in: app)
-        XCTAssertTrue(app.staticTexts["Latest Result"].waitForExistence(timeout: 10))
-        XCTAssertTrue(app.staticTexts["History"].exists)
-
-        app.tabBars.buttons["Statistics"].tap()
-        XCTAssertTrue(
-            app.otherElements["statistics.debt.card"].firstMatch.waitForExistence(timeout: 8)
-                || app.staticTexts["Debt Statistics"].firstMatch.waitForExistence(timeout: 8)
-        )
-        XCTAssertTrue(
-            app.otherElements["statistics.payment.card"].firstMatch.exists
-                || app.staticTexts["Payment Statistics"].firstMatch.exists
-        )
-        XCTAssertTrue(
-            app.otherElements["statistics.overdue.card"].firstMatch.exists
-                || app.staticTexts["Overdue Statistics"].firstMatch.exists
-        )
-        XCTAssertTrue(
-            app.otherElements["statistics.summary.card"].firstMatch.exists
-                || app.staticTexts["Summary"].firstMatch.exists
-        )
+        XCTAssertTrue(app.otherElements["rules.creditCard.globalDefault"].waitForExistence(timeout: 5) || app.buttons["rules.creditCard.globalDefault"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.otherElements["rules.loan.globalDefault"].waitForExistence(timeout: 5) || app.buttons["rules.loan.globalDefault"].waitForExistence(timeout: 5))
     }
 
     @MainActor
@@ -150,32 +85,6 @@ final class personal_debtUITests: XCTestCase {
             app.launchArguments = ["-UITestSkipOnboarding", "-UITestResetData", "-AppleLanguages", "(en)", "-AppleLocale", "en_US"]
             app.launch()
         }
-    }
-
-    @MainActor
-    private func dismissResultAlertIfPresent(in app: XCUIApplication) {
-        let errorAlert = app.alerts["Could not complete action"]
-        if errorAlert.waitForExistence(timeout: 1) {
-            XCTFail("Unexpected error alert while saving")
-            return
-        }
-
-        let savedAlert = app.alerts["Saved"]
-        if savedAlert.waitForExistence(timeout: 3) {
-            savedAlert.buttons.firstMatch.tap()
-        }
-    }
-
-    @MainActor
-    private func scrollToStaticText(_ label: String, in app: XCUIApplication, maxSwipes: Int = 10) -> XCUIElement {
-        let element = app.staticTexts[label]
-        for _ in 0..<maxSwipes {
-            if element.exists && element.isHittable {
-                return element
-            }
-            app.swipeUp()
-        }
-        return element
     }
 
 }

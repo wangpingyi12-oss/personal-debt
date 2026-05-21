@@ -146,10 +146,19 @@ final class LoanDebtService {
         try perform {
             try validateCalculationRuleInput(input)
 
+            let ruleToUpdate: LoanCalculationRule?
             if let existingRule {
-                apply(input, to: existingRule, updatedAt: today)
-                try markAnalyticsDirty([.overdue, .cost])
-                return (.recalculated, existingRule)
+                ruleToUpdate = existingRule
+            } else {
+                ruleToUpdate = try findCalculationRule(debtID: input.debtID)
+            }
+
+            if let rule = ruleToUpdate {
+                apply(input, to: rule, updatedAt: today)
+                try deleteDuplicateCalculationRules(debtID: input.debtID, keeping: rule)
+                try refreshAfterCalculationRuleChange(targetDebtID: input.debtID, today: today)
+                try markAnalyticsDirty(.all)
+                return (.recalculated, rule)
             }
 
             let rule = LoanCalculationRule(
@@ -166,15 +175,20 @@ final class LoanDebtService {
                 updatedAt: today
             )
             insert(rule)
-            try markAnalyticsDirty([.overdue, .cost])
+            try refreshAfterCalculationRuleChange(targetDebtID: input.debtID, today: today)
+            try markAnalyticsDirty(.all)
             return (.created, rule)
         }
     }
 
-    func deleteCalculationRule(_ rule: LoanCalculationRule) throws -> DebtServiceResult {
+    func deleteCalculationRule(_ rule: LoanCalculationRule, today: Date = Date()) throws -> DebtServiceResult {
         try perform {
+            guard let targetDebtID = rule.debtID else {
+                throw DebtServiceError.validationFailed(String(localized: "error.defaultRuleCannotBeDeleted", defaultValue: "Default calculation rules cannot be deleted."))
+            }
             modelContext?.delete(rule)
-            try markAnalyticsDirty([.overdue, .cost])
+            try refreshAfterCalculationRuleChange(targetDebtID: targetDebtID, today: today)
+            try markAnalyticsDirty(.all)
             return .recalculated
         }
     }
@@ -504,6 +518,68 @@ final class LoanDebtService {
         recalculateDebtStatus(debt: debt, plans: plans, overdues: overdues, today: today)
     }
 
+    private func refreshAfterCalculationRuleChange(targetDebtID: UUID?, today: Date) throws {
+        guard let modelContext else { return }
+
+        let debts = try modelContext.fetch(FetchDescriptor<LoanDebt>()).filter { $0.status != .archived }
+        let plans = try modelContext.fetch(FetchDescriptor<LoanRepaymentPlan>())
+        let payments = try modelContext.fetch(FetchDescriptor<LoanPaymentRecord>())
+        let allocationDetails = try modelContext.fetch(FetchDescriptor<LoanPaymentAllocationDetail>())
+        var overdues = try modelContext.fetch(FetchDescriptor<LoanOverdueRecord>())
+        let rules = try fetchCalculationRules()
+        let customDebtIDs = Set(rules.compactMap(\.debtID))
+        let affectedDebtIDs: Set<UUID>
+
+        if let targetDebtID {
+            affectedDebtIDs = [targetDebtID]
+        } else {
+            affectedDebtIDs = Set(debts.map(\.id).filter { customDebtIDs.contains($0) == false })
+        }
+
+        guard affectedDebtIDs.isEmpty == false else { return }
+
+        let plansByDebtID = Dictionary(grouping: plans, by: \.debtID)
+        let paymentsByDebtID = Dictionary(grouping: payments, by: \.debtID)
+
+        for debt in debts where affectedDebtIDs.contains(debt.id) {
+            let rule = effectiveCalculationRule(for: debt, rules: rules)
+            let debtPlans = (plansByDebtID[debt.id] ?? []).sorted {
+                if $0.dueDate == $1.dueDate { return $0.periodIndex < $1.periodIndex }
+                return $0.dueDate < $1.dueDate
+            }
+            var debtOverdues = overdues.filter { $0.debtID == debt.id && $0.status != .voided }
+
+            for plan in debtPlans where plan.status != .paid {
+                if debtOverdues.contains(where: { $0.planID == plan.id && $0.status == .ignored }) {
+                    continue
+                }
+                let existing = debtOverdues.first { $0.planID == plan.id && $0.status == .active }
+                if let record = overdueEngine.makeOrUpdateOverdueRecord(
+                    for: plan,
+                    debt: debt,
+                    existingRecord: existing,
+                    rule: rule,
+                    today: today
+                ), existing == nil {
+                    debtOverdues.append(record)
+                    overdues.append(record)
+                    insert(record)
+                }
+            }
+
+            var debtAllocationDetails = allocationDetails.filter { $0.debtID == debt.id }
+            try rebuildAllocations(
+                debt: debt,
+                plans: debtPlans,
+                payments: paymentsByDebtID[debt.id] ?? [],
+                allocationDetails: &debtAllocationDetails,
+                overdues: debtOverdues,
+                rule: rule,
+                today: today
+            )
+        }
+    }
+
     private func replaceAllocationDetails(
         _ allocationDetails: inout [LoanPaymentAllocationDetail],
         with newDetails: [LoanPaymentAllocationDetail]
@@ -549,6 +625,23 @@ final class LoanDebtService {
         rule.fixedPenaltyDailyRate = input.fixedPenaltyDailyRate
         rule.paymentAllocationMode = input.paymentAllocationMode
         rule.updatedAt = updatedAt
+    }
+
+    private func fetchCalculationRules() throws -> [LoanCalculationRule] {
+        guard let modelContext else { return [] }
+        return try modelContext.fetch(FetchDescriptor<LoanCalculationRule>())
+    }
+
+    private func findCalculationRule(debtID: UUID?) throws -> LoanCalculationRule? {
+        try fetchCalculationRules().sorted(by: calculationRuleSort).first { $0.debtID == debtID }
+    }
+
+    private func deleteDuplicateCalculationRules(debtID: UUID?, keeping keptRule: LoanCalculationRule) throws {
+        guard let modelContext else { return }
+        let duplicates = try fetchCalculationRules().filter {
+            $0.debtID == debtID && $0.id != keptRule.id
+        }
+        duplicates.forEach(modelContext.delete)
     }
 
     private func calculationRuleSort(_ lhs: LoanCalculationRule, _ rhs: LoanCalculationRule) -> Bool {

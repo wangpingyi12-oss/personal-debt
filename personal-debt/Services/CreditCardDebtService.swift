@@ -37,16 +37,13 @@ final class CreditCardDebtService {
             let debt = CreditCardDebt(
                 name: input.name,
                 bankName: input.bankName,
-                lastFourDigits: input.lastFourDigits,
-                creditLimit: input.creditLimit,
                 note: input.note,
                 billingDay: input.billingDay,
                 dueDay: input.dueDay,
                 currencyCode: input.currencyCode
             )
-            let rule = CreditCardCalculationRule(debtID: debt.id)
+            let rule = try globalDefaultCalculationRule()
             insert(debt)
-            insert(rule)
             try markAnalyticsDirty([.debt, .overdue, .cost])
             return (.created, debt, rule)
         }
@@ -59,20 +56,74 @@ final class CreditCardDebtService {
             guard input.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false else {
                 throw DebtServiceError.validationFailed(String(localized: "error.creditCardNameRequired", defaultValue: "Credit card name is required."))
             }
-            if let creditLimit = input.creditLimit {
-                try validateNonNegative(creditLimit, field: "creditLimit")
-            }
 
             debt.name = input.name
             debt.bankName = input.bankName
-            debt.lastFourDigits = input.lastFourDigits
-            debt.creditLimit = input.creditLimit
             debt.note = input.note
             debt.billingDay = input.billingDay
             debt.dueDay = input.dueDay
             debt.currencyCode = input.currencyCode
             debt.updatedAt = Date()
             try markAnalyticsDirty([.debt, .overdue, .cost])
+            return .recalculated
+        }
+    }
+
+    func upsertCalculationRule(
+        existingRule: CreditCardCalculationRule? = nil,
+        input: CreditCardCalculationRuleInput,
+        today: Date = Date()
+    ) throws -> (DebtServiceResult, CreditCardCalculationRule) {
+        try perform {
+            try validateCalculationRuleInput(input)
+
+            let ruleToUpdate: CreditCardCalculationRule?
+            if let existingRule {
+                ruleToUpdate = existingRule
+            } else {
+                ruleToUpdate = try findCalculationRule(debtID: input.debtID)
+            }
+
+            if let rule = ruleToUpdate {
+                apply(input, to: rule)
+                try deleteDuplicateCalculationRules(debtID: input.debtID, keeping: rule)
+                try refreshAfterCalculationRuleChange(targetDebtID: input.debtID, today: today)
+                try markAnalyticsDirty(.all)
+                return (.recalculated, rule)
+            }
+
+            let rule = CreditCardCalculationRule(
+                debtID: input.debtID,
+                minimumPaymentRatio: input.minimumPaymentRatio,
+                minimumPaymentFloor: input.minimumPaymentFloor,
+                revolvingInterestEnabled: input.revolvingInterestEnabled,
+                revolvingDailyRate: input.revolvingDailyRate,
+                overdueFeeRate: input.overdueFeeRate,
+                minimumOverdueFee: input.minimumOverdueFee,
+                fixedOverdueFee: input.fixedOverdueFee,
+                penaltyBaseType: input.penaltyBaseType,
+                penaltyDailyRate: input.penaltyDailyRate,
+                currentPurchaseFallbackMode: input.currentPurchaseFallbackMode
+            )
+            insert(rule)
+            try refreshAfterCalculationRuleChange(targetDebtID: input.debtID, today: today)
+            try markAnalyticsDirty(.all)
+            return (.created, rule)
+        }
+    }
+
+    func deleteCalculationRule(
+        _ rule: CreditCardCalculationRule,
+        today: Date = Date()
+    ) throws -> DebtServiceResult {
+        try perform {
+            guard let targetDebtID = rule.debtID else {
+                throw DebtServiceError.validationFailed(String(localized: "error.defaultRuleCannotBeDeleted", defaultValue: "Default calculation rules cannot be deleted."))
+            }
+
+            modelContext?.delete(rule)
+            try refreshAfterCalculationRuleChange(targetDebtID: targetDebtID, today: today)
+            try markAnalyticsDirty(.all)
             return .recalculated
         }
     }
@@ -660,6 +711,134 @@ final class CreditCardDebtService {
             .sorted { $0.billingDate > $1.billingDate }
             .first?
             .id
+    }
+
+    func effectiveCalculationRule(for debt: CreditCardDebt, rules: [CreditCardCalculationRule]) -> CreditCardCalculationRule {
+        if let debtRule = rules.first(where: { $0.debtID == debt.id }) {
+            return debtRule
+        }
+        if let globalDefault = rules.first(where: { $0.debtID == nil }) {
+            return globalDefault
+        }
+        return CreditCardCalculationRule.builtInDefault(debtID: debt.id)
+    }
+
+    private func refreshAfterCalculationRuleChange(targetDebtID: UUID?, today: Date) throws {
+        guard let modelContext else { return }
+
+        let debts = try modelContext.fetch(FetchDescriptor<CreditCardDebt>()).filter(\.isActive)
+        let statements = try modelContext.fetch(FetchDescriptor<CreditCardStatement>())
+        let plans = try modelContext.fetch(FetchDescriptor<CreditCardRepaymentPlan>())
+        let payments = try modelContext.fetch(FetchDescriptor<CreditCardPaymentRecord>())
+        var overdues = try modelContext.fetch(FetchDescriptor<CreditCardOverdueRecord>())
+        let rules = try fetchCalculationRules()
+        let customDebtIDs = Set(rules.compactMap(\.debtID))
+        let affectedDebtIDs: Set<UUID>
+
+        if let targetDebtID {
+            affectedDebtIDs = [targetDebtID]
+        } else {
+            affectedDebtIDs = Set(debts.map(\.id).filter { customDebtIDs.contains($0) == false })
+        }
+
+        guard affectedDebtIDs.isEmpty == false else { return }
+
+        let plansByStatementID = Dictionary(grouping: plans.filter(\.isActive), by: \.statementID)
+        let statementsByDebtID = Dictionary(grouping: statements, by: \.debtID)
+        let paymentsByStatementID = Dictionary(grouping: payments.filter(\.isActive), by: \.statementID)
+
+        for debt in debts where affectedDebtIDs.contains(debt.id) {
+            let rule = effectiveCalculationRule(for: debt, rules: rules)
+            let debtStatements = (statementsByDebtID[debt.id] ?? [])
+                .filter { $0.isActive && $0.status != .replaced }
+                .sorted { $0.billingDate < $1.billingDate }
+
+            for statement in debtStatements {
+                if statement.minimumPaymentSource != "userProvided" {
+                    statement.minimumPaymentAmount = billingEngine.minimumPaymentAmount(
+                        statementAmount: statement.statementAmount,
+                        userInput: nil,
+                        rule: rule
+                    )
+                    statement.minimumPaymentSource = "fallbackRule"
+                }
+
+                let plan = plansByStatementID[statement.id]?.first
+                plan?.dueDate = statement.dueDate
+                plan?.scheduledAmount = statement.statementAmount
+
+                recalculateStatementAndOverdue(
+                    debt: debt,
+                    statement: statement,
+                    plan: plan,
+                    payments: paymentsByStatementID[statement.id] ?? [],
+                    overdues: &overdues,
+                    rule: rule,
+                    today: today
+                )
+            }
+        }
+    }
+
+    private func globalDefaultCalculationRule(now: Date = Date()) throws -> CreditCardCalculationRule {
+        let rules = try fetchCalculationRules()
+        if let globalDefault = rules.first(where: { $0.debtID == nil }) {
+            return globalDefault
+        }
+        let rule = CreditCardCalculationRule.builtInDefault(now: now)
+        insert(rule)
+        return rule
+    }
+
+    private func fetchCalculationRules() throws -> [CreditCardCalculationRule] {
+        guard let modelContext else { return [] }
+        return try modelContext.fetch(FetchDescriptor<CreditCardCalculationRule>())
+    }
+
+    private func findCalculationRule(debtID: UUID?) throws -> CreditCardCalculationRule? {
+        try fetchCalculationRules().first { $0.debtID == debtID }
+    }
+
+    private func deleteDuplicateCalculationRules(debtID: UUID?, keeping keptRule: CreditCardCalculationRule) throws {
+        guard let modelContext else { return }
+        let duplicates = try fetchCalculationRules().filter {
+            $0.debtID == debtID && $0.id != keptRule.id
+        }
+        duplicates.forEach(modelContext.delete)
+    }
+
+    private func apply(_ input: CreditCardCalculationRuleInput, to rule: CreditCardCalculationRule) {
+        rule.debtID = input.debtID
+        rule.minimumPaymentRatio = input.minimumPaymentRatio
+        rule.minimumPaymentFloor = input.minimumPaymentFloor
+        rule.revolvingInterestEnabled = input.revolvingInterestEnabled
+        rule.revolvingDailyRate = input.revolvingDailyRate
+        rule.overdueFeeRate = input.overdueFeeRate
+        rule.minimumOverdueFee = input.minimumOverdueFee
+        rule.fixedOverdueFee = input.fixedOverdueFee
+        rule.penaltyBaseType = input.penaltyBaseType
+        rule.penaltyDailyRate = input.penaltyDailyRate
+        rule.currentPurchaseFallbackMode = input.currentPurchaseFallbackMode
+    }
+
+    private func validateCalculationRuleInput(_ input: CreditCardCalculationRuleInput) throws {
+        guard (Decimal(0)...Decimal(1)).contains(input.minimumPaymentRatio) else {
+            throw DebtServiceError.validationFailed("Minimum payment ratio must be between 0 and 100%.")
+        }
+        try validateNonNegative(input.minimumPaymentFloor, field: "minimumPaymentFloor")
+        guard (Decimal(0)...Decimal(1)).contains(input.revolvingDailyRate) else {
+            throw DebtServiceError.validationFailed("Revolving daily rate must be between 0 and 100%.")
+        }
+        guard (Decimal(0)...Decimal(1)).contains(input.overdueFeeRate) else {
+            throw DebtServiceError.validationFailed("Overdue fee rate must be between 0 and 100%.")
+        }
+        try validateNonNegative(input.minimumOverdueFee, field: "minimumOverdueFee")
+        if let fixedOverdueFee = input.fixedOverdueFee {
+            try validateNonNegative(fixedOverdueFee, field: "fixedOverdueFee")
+        }
+        guard (Decimal(0)...Decimal(1)).contains(input.penaltyDailyRate) else {
+            throw DebtServiceError.validationFailed("Penalty daily rate must be between 0 and 100%.")
+        }
     }
 
     private func validateDay(_ value: Int, field: String) throws {

@@ -46,15 +46,16 @@ final class StrategySimulationService {
         guard let modelContext else {
             throw DebtServiceError.validationFailed("A model context is required to save a strategy comparison.")
         }
-
-        let selectedResult = result
-        selectedResult.comparisonBatch.recommendedStrategy = selectedStrategy
-        for output in selectedResult.simulations {
-            output.simulation.recommendationReason = output.simulation.strategyType == selectedStrategy
-                ? selectedResult.comparisonBatch.recommendationReason
-                : ""
+        guard let selectedOutput = result.simulations.first(where: { $0.simulation.strategyType == selectedStrategy }) else {
+            throw DebtServiceError.validationFailed("The selected strategy is not part of this comparison.")
         }
-        try save(selectedResult, in: modelContext)
+
+        var selectedResult = result
+        selectedResult.comparisonBatch.recommendedStrategy = selectedStrategy
+        selectedOutput.simulation.recommendationReason = selectedResult.comparisonBatch.recommendationReason
+        selectedResult.simulations = [selectedOutput]
+
+        try saveSelected(selectedResult, selectedOutput: selectedOutput, in: modelContext)
         return selectedResult
     }
 
@@ -149,6 +150,23 @@ final class StrategySimulationService {
         try modelContext.save()
     }
 
+    private func saveSelected(
+        _ result: StrategyComparisonResult,
+        selectedOutput: StrategySimulationOutput,
+        in modelContext: ModelContext
+    ) throws {
+        modelContext.insert(result.comparisonBatch)
+        result.riskEvents.forEach(modelContext.insert)
+
+        modelContext.insert(selectedOutput.simulation)
+        selectedOutput.monthSnapshots.forEach(modelContext.insert)
+        selectedOutput.allocations.forEach(modelContext.insert)
+        selectedOutput.costEvents.forEach(modelContext.insert)
+        selectedOutput.riskEvents.forEach(modelContext.insert)
+
+        try modelContext.save()
+    }
+
     private func makeCreditCardSnapshots(
         debts: [CreditCardDebt],
         statements: [CreditCardStatement],
@@ -161,14 +179,12 @@ final class StrategySimulationService {
             debtIDs: debtIDs,
             calendar: datePolicy.calendar
         )
-        let rulesByDebtID = Dictionary(uniqueKeysWithValues: rules.map { ($0.debtID, $0) })
-
         return debts.compactMap { debt in
             guard let statement = latestStatements[debt.id] else { return nil }
             let remaining = roundingPolicy.round(maxDecimal(statement.remainingAmount, 0))
             guard remaining > 0 else { return nil }
 
-            let rule = rulesByDebtID[debt.id] ?? CreditCardCalculationRule(debtID: debt.id)
+            let rule = CreditCardDebtService().effectiveCalculationRule(for: debt, rules: rules)
             let minimumGap = roundingPolicy.round(maxDecimal(statement.minimumPaymentAmount - statement.paidAmount, 0))
             let isOverdue = statement.status == .overdue || statement.dueDate < strategyDate
             let overdueDays = isOverdue ? datePolicy.daysBetween(statement.dueDate, strategyDate) : 0

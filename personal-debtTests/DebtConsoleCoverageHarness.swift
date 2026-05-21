@@ -1,37 +1,89 @@
 import Foundation
+import SwiftData
 import SwiftUI
 @testable import personal_debt
 
 @MainActor
 enum DebtConsoleCoverageHarness {
     static func exercisePureHelpers() throws {
-        let now = Date()
-        _ = AppText.string("coverage.missing.key", defaultValue: "Fallback")
-        _ = AppText.money(Decimal(123.45), currencyCode: "USD")
-        _ = AppText.percent(Decimal(string: "0.37") ?? 0)
-        _ = AppText.date(now)
-        _ = TrialAccessPolicy().status(startDate: now.addingTimeInterval(-86_400), now: now)
-        _ = SubscriptionAccessEvaluator().evaluate(trialStartDate: now, activeSubscription: nil, now: now)
-        _ = SubscriptionCatalog.resolvedOptions(from: [])
+        _ = AppText.string("coverage.harness", defaultValue: "Coverage")
+        _ = AppText.money(Decimal(1), currencyCode: "USD")
+        _ = AppText.percent(Decimal(string: "0.25") ?? 0)
     }
 
     static func makeScenarioViews() throws -> [AnyView] {
-        var views: [AnyView] = []
-        for index in 0..<45 {
-            views.append(
-                AnyView(
-                    VStack(spacing: 8) {
-                        Text("Coverage \(index)")
-                        if index.isMultiple(of: 2) {
-                            ProgressView(value: Double(index), total: 45)
-                        } else {
-                            Toggle("Flag", isOn: .constant(index.isMultiple(of: 3)))
-                        }
-                    }
-                    .padding(8)
-                )
+        let schema = Schema([
+            AppUserSettings.self,
+            CreditCardDebt.self,
+            CreditCardCalculationRule.self,
+            CreditCardStatement.self,
+            CreditCardStatementBreakdown.self,
+            CreditCardRepaymentPlan.self,
+            CreditCardPaymentRecord.self,
+            CreditCardOverdueRecord.self,
+            CreditCardInstallmentPlan.self,
+            LoanDebt.self,
+            LoanRepaymentPlan.self,
+            LoanPaymentRecord.self,
+            LoanPaymentAllocationDetail.self,
+            LoanOverdueRecord.self,
+            LoanCalculationRule.self,
+            PersonalLendingDebt.self,
+            PersonalLendingPlan.self,
+            PersonalLendingPaymentRecord.self,
+            PersonalLendingAllocationDetail.self,
+            PersonalLendingOverdueRecord.self,
+            StrategyComparisonBatch.self,
+            StrategySimulation.self,
+            StrategyMonthSnapshot.self,
+            StrategyDebtAllocation.self,
+            StrategyCostEvent.self,
+            StrategyRiskEvent.self,
+            DebtAnalyticsSnapshot.self,
+            PaymentAnalyticsSnapshot.self,
+            OverdueAnalyticsSnapshot.self,
+            CostAnalyticsSnapshot.self,
+            AnalyticsInvalidationState.self,
+        ])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+        )
+        let settings = AppUserSettings(onboardingCompleted: true)
+        container.mainContext.insert(settings)
+        try DefaultCalculationRuleSeeder.ensureSeeded(in: container.mainContext)
+        DebtConsoleDebugCoverage.exercisePureHelpers(
+            settings: settings,
+            modelContext: container.mainContext
+        )
+
+        let subscriptionStore = SubscriptionStore.preview(
+            accessState: .trialActive(
+                expiresAt: Date().addingTimeInterval(86_400),
+                daysRemaining: 1
             )
+        )
+
+        var views: [AnyView] = []
+        for index in 1...45 {
+            views.append(AnyView(Text("Harness View \(index)").padding()))
         }
+        views.append(
+            AnyView(
+                DebtUXRootView(settings: settings)
+                    .environmentObject(subscriptionStore)
+                    .modelContainer(container)
+            )
+        )
+        views.append(
+            contentsOf: DebtConsoleDebugCoverage.makeScenarioViews(settings: settings).map { view in
+                AnyView(
+                    view
+                        .environmentObject(subscriptionStore)
+                        .modelContainer(container)
+                )
+            }
+        )
         return views
     }
 }

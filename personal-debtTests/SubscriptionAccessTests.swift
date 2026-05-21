@@ -162,6 +162,30 @@ struct SubscriptionAccessTests {
     }
 
     @Test
+    func subscriptionStoreStartsTrialRefreshesEntitlementsAndReportsReadOnlyState() async {
+        let trialStore = InMemoryTrialAccessStore()
+        let store = SubscriptionStore(
+            trialStore: trialStore,
+            trialPolicy: TrialAccessPolicy(durationDays: 15),
+            now: { startDate }
+        )
+
+        await store.refreshEntitlements()
+        #expect(store.accessState == .loading)
+        #expect(store.hasFullAccess == false)
+        #expect(store.isReadOnly == false)
+
+        await store.start()
+        #expect(trialStore.trialStartDate == startDate)
+        #expect(store.hasFullAccess)
+        #expect(store.isReadOnly == false)
+
+        let stateAfterFirstStart = store.accessState
+        await store.start()
+        #expect(store.accessState == stateAfterFirstStart)
+    }
+
+    @Test
     func resolvedPricingKeepsCatalogOrderAndIgnoresUnknownProducts() {
         let yearly = SubscriptionProductOption(
             id: SubscriptionCatalog.yearlyProductID,
@@ -188,5 +212,35 @@ struct SubscriptionAccessTests {
         #expect(options[1].id == SubscriptionCatalog.yearlyProductID)
         #expect(options[1].priceText == "$15.99")
         #expect(options.contains(where: { $0.id == unknown.id }) == false)
+    }
+
+    @Test
+    func accessStateTextAndSubscriptionReplacementPreferLongerEntitlement() {
+        #expect(SubscriptionAccessState.loading.statusTitle.isEmpty == false)
+        #expect(SubscriptionAccessState.loading.statusDetail.isEmpty == false)
+        #expect(SubscriptionAccessState.trialActive(expiresAt: startDate, daysRemaining: 1).statusDetail.contains("1"))
+        #expect(SubscriptionAccessState.trialActive(expiresAt: startDate, daysRemaining: 3).statusDetail.contains("3"))
+        #expect(SubscriptionAccessState.subscribed(productID: "monthly", renewalDate: nil).statusDetail.isEmpty == false)
+        #expect(SubscriptionAccessState.subscribed(productID: "yearly", renewalDate: startDate).statusDetail.isEmpty == false)
+        #expect(SubscriptionAccessState.readOnly(trialExpiredAt: startDate).statusTitle.isEmpty == false)
+
+        let store = SubscriptionStore.preview(accessState: .loading)
+        let monthly = ActiveSubscription(
+            productID: SubscriptionCatalog.monthlyProductID,
+            renewalDate: startDate.addingTimeInterval(30 * 86_400)
+        )
+        let yearly = ActiveSubscription(
+            productID: SubscriptionCatalog.yearlyProductID,
+            renewalDate: startDate.addingTimeInterval(365 * 86_400)
+        )
+        let lifetimeLike = ActiveSubscription(
+            productID: SubscriptionCatalog.yearlyProductID,
+            renewalDate: nil
+        )
+
+        #expect(store.debugShouldReplaceActiveSubscription(current: nil, candidate: monthly))
+        #expect(store.debugShouldReplaceActiveSubscription(current: monthly, candidate: yearly))
+        #expect(store.debugShouldReplaceActiveSubscription(current: yearly, candidate: monthly) == false)
+        #expect(store.debugShouldReplaceActiveSubscription(current: yearly, candidate: lifetimeLike))
     }
 }

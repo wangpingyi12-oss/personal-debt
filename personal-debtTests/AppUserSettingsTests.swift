@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 import SwiftUI
 import UIKit
@@ -74,6 +75,90 @@ struct AppUserSettingsTests {
     }
 
     @Test
+    func uiTestDataResetterClearsProjectModelsAndSeedsSettings() throws {
+        #if DEBUG
+        let schema = Schema([
+            AppUserSettings.self,
+            CreditCardDebt.self,
+            CreditCardCalculationRule.self,
+            CreditCardStatement.self,
+            CreditCardStatementBreakdown.self,
+            CreditCardRepaymentPlan.self,
+            CreditCardPaymentRecord.self,
+            CreditCardOverdueRecord.self,
+            CreditCardInstallmentPlan.self,
+            LoanDebt.self,
+            LoanRepaymentPlan.self,
+            LoanPaymentRecord.self,
+            LoanPaymentAllocationDetail.self,
+            LoanOverdueRecord.self,
+            LoanCalculationRule.self,
+            PersonalLendingDebt.self,
+            PersonalLendingPlan.self,
+            PersonalLendingPaymentRecord.self,
+            PersonalLendingAllocationDetail.self,
+            PersonalLendingOverdueRecord.self,
+            StrategyComparisonBatch.self,
+            StrategySimulation.self,
+            StrategyMonthSnapshot.self,
+            StrategyDebtAllocation.self,
+            StrategyCostEvent.self,
+            StrategyRiskEvent.self,
+            DebtAnalyticsSnapshot.self,
+            PaymentAnalyticsSnapshot.self,
+            OverdueAnalyticsSnapshot.self,
+            CostAnalyticsSnapshot.self,
+            AnalyticsInvalidationState.self,
+        ])
+        let container = try ModelContainer(
+            for: schema,
+            configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)]
+        )
+        let context = container.mainContext
+        let card = CreditCardDebt(name: "Reset Card", billingDay: 1, dueDay: 20)
+        let loan = LoanDebt(
+            name: "Reset Loan",
+            creditorName: "Bank",
+            repaymentMethod: .equalPrincipal,
+            originalPrincipal: 100,
+            annualInterestRate: 0,
+            startDate: Date(),
+            endDate: Date().addingTimeInterval(86_400),
+            repaymentDay: 1,
+            termCount: 1
+        )
+        let personal = PersonalLendingDebt(
+            name: "Reset Friend",
+            lenderName: "Alex",
+            principalAmount: 100,
+            fixedInterestAmount: 0,
+            borrowedDate: Date(),
+            agreedEndDate: Date().addingTimeInterval(86_400),
+            repaymentMethod: .noFixedPlan,
+            isInterestBearing: false,
+            termCount: 0
+        )
+
+        context.insert(AppUserSettings(onboardingCompleted: false))
+        context.insert(card)
+        context.insert(CreditCardCalculationRule(debtID: card.id))
+        context.insert(loan)
+        context.insert(LoanCalculationRule(debtID: loan.id))
+        context.insert(personal)
+        try context.save()
+
+        #expect(UITestDataResetter.resetDataForTesting(modelContext: context, onboardingCompleted: true))
+
+        let settings = try context.fetch(FetchDescriptor<AppUserSettings>())
+        #expect(settings.count == 1)
+        #expect(settings.first?.onboardingCompleted == true)
+        #expect(try context.fetch(FetchDescriptor<CreditCardDebt>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<LoanDebt>()).isEmpty)
+        #expect(try context.fetch(FetchDescriptor<PersonalLendingDebt>()).isEmpty)
+        #endif
+    }
+
+    @Test
     func projectViewCoverageHarnessRendersWholeAppScenarios() throws {
         #if DEBUG
         try DebtConsoleCoverageHarness.exercisePureHelpers()
@@ -82,10 +167,17 @@ struct AppUserSettingsTests {
         #expect(views.count > 40)
 
         for view in views {
+            let frame = CGRect(x: 0, y: 0, width: 430, height: 6_000)
+            let window = UIWindow(frame: frame)
             let controller = UIHostingController(rootView: view)
-            controller.view.frame = CGRect(x: 0, y: 0, width: 430, height: 932)
+            controller.view.frame = frame
+            window.rootViewController = controller
+            window.makeKeyAndVisible()
             controller.view.setNeedsLayout()
             controller.view.layoutIfNeeded()
+            RunLoop.current.run(until: Date().addingTimeInterval(0.05))
+            window.rootViewController = nil
+            window.isHidden = true
             RunLoop.current.run(until: Date().addingTimeInterval(0.01))
         }
         #endif

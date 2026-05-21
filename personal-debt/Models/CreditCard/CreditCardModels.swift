@@ -6,8 +6,6 @@ final class CreditCardDebt {
     var id: UUID
     var name: String
     var bankName: String
-    var lastFourDigits: String
-    var creditLimit: Decimal?
     var note: String
     var billingDay: Int
     var dueDay: Int
@@ -26,8 +24,6 @@ final class CreditCardDebt {
         id: UUID = UUID(),
         name: String,
         bankName: String = "",
-        lastFourDigits: String = "",
-        creditLimit: Decimal? = nil,
         note: String = "",
         billingDay: Int,
         dueDay: Int,
@@ -40,8 +36,6 @@ final class CreditCardDebt {
         self.id = id
         self.name = name
         self.bankName = bankName
-        self.lastFourDigits = lastFourDigits
-        self.creditLimit = creditLimit
         self.note = note
         self.billingDay = billingDay
         self.dueDay = dueDay
@@ -56,7 +50,7 @@ final class CreditCardDebt {
 @Model
 final class CreditCardCalculationRule {
     var id: UUID
-    var debtID: UUID
+    var debtID: UUID?
     var minimumPaymentRatio: Decimal
     var minimumPaymentFloor: Decimal
     var revolvingInterestEnabled: Bool
@@ -75,7 +69,7 @@ final class CreditCardCalculationRule {
 
     init(
         id: UUID = UUID(),
-        debtID: UUID,
+        debtID: UUID? = nil,
         minimumPaymentRatio: Decimal = Decimal(string: "0.10") ?? 0.10,
         minimumPaymentFloor: Decimal = 0,
         revolvingInterestEnabled: Bool = true,
@@ -99,6 +93,15 @@ final class CreditCardCalculationRule {
         self.penaltyBaseTypeRawValue = penaltyBaseType.rawValue
         self.penaltyDailyRate = penaltyDailyRate
         self.currentPurchaseFallbackMode = currentPurchaseFallbackMode
+    }
+
+    var isGlobalDefault: Bool {
+        debtID == nil
+    }
+
+    static func builtInDefault(debtID: UUID? = nil, now: Date = Date()) -> CreditCardCalculationRule {
+        _ = now
+        return CreditCardCalculationRule(debtID: debtID)
     }
 }
 

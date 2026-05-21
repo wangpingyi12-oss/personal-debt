@@ -576,6 +576,331 @@ struct BusinessLoopServiceTests {
     }
 
     @Test
+    func loanServiceUpdatesCoreFieldsManualOverduesAndPaymentMutations() throws {
+        let service = LoanDebtService()
+        let (_, debt, initialPlans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Loan",
+                creditorName: "Bank",
+                note: "original",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 300,
+                openingPrincipalForManagement: nil,
+                annualInterestRate: 0,
+                startDate: date(2026, 1, 1),
+                managementStartDate: nil,
+                endDate: date(2026, 3, 10),
+                repaymentDay: 10,
+                termCount: 3,
+                currencyCode: "USD"
+            )
+        )
+        var plans = initialPlans
+
+        let (_, regeneratedPlans) = try service.updateCoreFields(
+            debt: debt,
+            input: LoanDebtInput(
+                name: "Updated Loan",
+                creditorName: "New Bank",
+                note: "regenerated",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPayment,
+                originalPrincipal: 300,
+                openingPrincipalForManagement: nil,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2026, 1, 1),
+                managementStartDate: nil,
+                endDate: date(2026, 3, 10),
+                repaymentDay: 10,
+                termCount: 3,
+                currencyCode: "USD"
+            ),
+            existingPayments: [],
+            plans: &plans
+        )
+        #expect(debt.name == "Updated Loan")
+        #expect(debt.creditorName == "New Bank")
+        #expect(regeneratedPlans.count == 3)
+        #expect(plans.count == regeneratedPlans.count)
+
+        _ = try service.updateDisplayFields(debt: debt, name: "Display Loan", creditorName: "Display Bank", note: "display")
+        #expect(debt.name == "Display Loan")
+        #expect(debt.note == "display")
+
+        var overdues: [LoanOverdueRecord] = []
+        let (_, overdue) = try service.createManualOverdue(
+            debt: debt,
+            plan: plans[0],
+            existingOverdues: &overdues,
+            input: LoanManualOverdueInput(
+                overdueFee: 7,
+                penaltyInterest: 3,
+                startDate: date(2026, 1, 12),
+                note: "manual"
+            ),
+            today: date(2026, 1, 20)
+        )
+        #expect(overdue.status == .active)
+        #expect(plans[0].status == .overdue)
+
+        _ = try service.updateManualOverdue(
+            overdue,
+            plan: plans[0],
+            debt: debt,
+            plans: plans,
+            overdues: overdues,
+            input: LoanManualOverdueInput(
+                overdueFee: 8,
+                penaltyInterest: 4,
+                startDate: date(2026, 1, 12),
+                endDate: date(2026, 1, 19),
+                note: "closed"
+            ),
+            today: date(2026, 1, 20)
+        )
+        #expect(overdue.status == .closed)
+        #expect(overdue.source == .userAdjusted)
+        #expect(plans[0].remainingOverdueFee == 0)
+
+        _ = try service.voidOverdue(
+            overdue,
+            plan: plans[0],
+            debt: debt,
+            plans: plans,
+            overdues: overdues,
+            status: .ignored,
+            today: date(2026, 1, 21)
+        )
+        #expect(overdue.status == .ignored)
+
+        let (_, rule) = try service.upsertCalculationRule(
+            input: LoanCalculationRuleInput(
+                debtID: debt.id,
+                overdueFeeMode: .fixed,
+                fixedOverdueFee: 2,
+                penaltyInterestMode: .fixedDailyRate,
+                fixedPenaltyDailyRate: decimal("0.001")
+            ),
+            today: date(2026, 1, 1)
+        )
+        _ = try service.deleteCalculationRule(rule)
+
+        var payments: [LoanPaymentRecord] = []
+        var allocations: [LoanPaymentAllocationDetail] = []
+        let (_, payment) = try service.recordPayment(
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            overdues: [],
+            input: LoanPaymentInput(paymentDate: date(2026, 1, 10), totalAmount: 50, note: "first"),
+            today: date(2026, 1, 10)
+        )
+        let savedPayment = try #require(payment)
+
+        let updateResult = try service.updatePayment(
+            savedPayment,
+            input: LoanPaymentInput(paymentDate: date(2026, 1, 11), totalAmount: 60, note: "updated"),
+            debt: debt,
+            plans: plans,
+            payments: payments,
+            allocationDetails: &allocations,
+            overdues: [],
+            today: date(2026, 1, 11)
+        )
+        #expect(updateResult == .recalculated)
+        #expect(savedPayment.totalAmount == 60)
+        #expect(savedPayment.note == "updated")
+
+        _ = try service.deletePayment(
+            savedPayment,
+            debt: debt,
+            plans: plans,
+            payments: &payments,
+            allocationDetails: &allocations,
+            overdues: [],
+            today: date(2026, 1, 12)
+        )
+        #expect(payments.isEmpty)
+
+        _ = try service.softDeleteDebt(debt, overdues: overdues, today: date(2026, 1, 30))
+        #expect(debt.status == .archived)
+        #expect(overdue.status == .voided)
+    }
+
+    @Test
+    func creditCardServiceUpdatesStatementsPaymentsOverduesAndSoftDeletes() throws {
+        let service = CreditCardDebtService()
+        let (_, debt, rule) = try service.createDebt(
+            CreditCardDebtInput(
+                name: "Card",
+                bankName: "Bank",
+                note: "original",
+                billingDay: 1,
+                dueDay: 20,
+                currencyCode: "USD"
+            )
+        )
+
+        _ = try service.updateDebt(
+            debt,
+            input: CreditCardDebtInput(
+                name: "Updated Card",
+                bankName: "New Bank",
+                note: "updated",
+                billingDay: 2,
+                dueDay: 21,
+                currencyCode: "USD"
+            )
+        )
+        #expect(debt.name == "Updated Card")
+        #expect(debt.billingDay == 2)
+
+        let (_, statement, plan) = try service.createUserConfirmedStatement(
+            debt: debt,
+            input: CreditCardStatementInput(
+                billingDate: date(2026, 1, 2),
+                dueDate: date(2026, 1, 21),
+                statementAmount: 1000,
+                minimumPaymentAmount: 100
+            ),
+            rule: rule,
+            fallbackStatements: [],
+            fallbackPlans: [],
+            fallbackBreakdowns: []
+        )
+        var payments: [CreditCardPaymentRecord] = []
+        var overdues: [CreditCardOverdueRecord] = []
+
+        _ = try service.updateUserConfirmedStatement(
+            statement,
+            input: CreditCardStatementInput(
+                billingDate: date(2026, 1, 2),
+                dueDate: date(2026, 1, 21),
+                statementAmount: 900,
+                minimumPaymentAmount: nil
+            ),
+            debt: debt,
+            plan: plan,
+            payments: payments,
+            overdues: &overdues,
+            rule: rule,
+            today: date(2026, 1, 10)
+        )
+        #expect(statement.statementAmount == 900)
+        #expect(statement.minimumPaymentSource == "fallbackRule")
+
+        let (_, payment) = try service.recordPayment(
+            debt: debt,
+            statement: statement,
+            plan: plan,
+            payments: &payments,
+            overdues: &overdues,
+            input: CreditCardPaymentInput(paymentDate: date(2026, 1, 22), amount: 50, note: "first"),
+            rule: rule,
+            today: date(2026, 1, 22)
+        )
+
+        _ = try service.updatePayment(
+            payment,
+            input: CreditCardPaymentInput(paymentDate: date(2026, 1, 23), amount: 150, note: "updated"),
+            debt: debt,
+            statement: statement,
+            plan: plan,
+            payments: payments,
+            overdues: &overdues,
+            rule: rule,
+            today: date(2026, 1, 23)
+        )
+        #expect(payment.amount == 150)
+        #expect(payment.note == "updated")
+
+        _ = try service.softDeletePayment(
+            payment,
+            debt: debt,
+            statement: statement,
+            plan: plan,
+            payments: payments,
+            overdues: &overdues,
+            rule: rule,
+            today: date(2026, 1, 24)
+        )
+        #expect(payment.isActive == false)
+
+        overdues.removeAll()
+        let (_, manualOverdue) = try service.createManualOverdue(
+            debt: debt,
+            statement: statement,
+            plan: plan,
+            allStatements: [statement],
+            existingOverdues: &overdues,
+            input: CreditCardManualOverdueInput(
+                overdueAmount: 900,
+                overdueFee: 9,
+                penaltyInterest: 4,
+                startDate: date(2026, 1, 22),
+                note: "manual"
+            )
+        )
+        _ = try service.updateManualOverdue(
+            manualOverdue,
+            input: CreditCardManualOverdueInput(
+                overdueAmount: 800,
+                overdueFee: 8,
+                penaltyInterest: 3,
+                startDate: date(2026, 1, 22),
+                endDate: date(2026, 1, 25),
+                note: "ended"
+            ),
+            debt: debt,
+            statement: statement,
+            plan: plan,
+            today: date(2026, 1, 25)
+        )
+        #expect(manualOverdue.status == .ended)
+        #expect(manualOverdue.recordSource == .userAdjusted)
+
+        _ = try service.voidOverdue(manualOverdue, status: .replaced, today: date(2026, 1, 26))
+        #expect(manualOverdue.status == .replaced)
+        #expect(manualOverdue.isActive == false)
+
+        _ = try service.softDeleteStatement(
+            statement,
+            debt: debt,
+            plan: plan,
+            payments: payments,
+            overdues: &overdues,
+            today: date(2026, 1, 27)
+        )
+        #expect(statement.isActive == false)
+        #expect(plan.isActive == false)
+
+        let breakdown = CreditCardStatementBreakdown(statementID: statement.id, source: .userProvided)
+        let installment = CreditCardInstallmentPlan(
+            debtID: debt.id,
+            nextBillingDate: date(2026, 2, 2),
+            principalPerTerm: 10,
+            feePerTerm: 1,
+            interestPerTerm: 1,
+            totalTerms: 3
+        )
+        _ = try service.softDeleteDebt(
+            debt,
+            statements: [statement],
+            plans: [plan],
+            breakdowns: [breakdown],
+            payments: payments,
+            overdues: overdues,
+            installments: [installment],
+            today: date(2026, 1, 28)
+        )
+        #expect(debt.status == .archived)
+        #expect(breakdown.isActive == false)
+        #expect(installment.isActive == false)
+    }
+
+    @Test
     func personalLendingServiceLocksCoreFieldsAfterPaymentButAllowsDisplayFields() throws {
         let service = PersonalLendingDebtService()
         let input = PersonalLendingDebtInput(
@@ -1043,5 +1368,269 @@ struct BusinessLoopServiceTests {
         #expect(debt.status == .archived)
         #expect(overdues.allSatisfy { $0.status == .voided })
         #expect(overdues.allSatisfy { $0.overdueEndDate != nil })
+    }
+
+    @Test
+    func loanOverdueEngineUpdatesExistingRecordsAndPlanStatusBranches() throws {
+        let engine = LoanOverdueEngine()
+        let debt = LoanDebt(
+            name: "Loan",
+            creditorName: "Bank",
+            repaymentMethod: .equalPrincipal,
+            originalPrincipal: 1000,
+            annualInterestRate: decimal("0.365"),
+            startDate: date(2026, 1, 1),
+            endDate: date(2026, 12, 31),
+            repaymentDay: 10,
+            termCount: 12
+        )
+        let plan = LoanRepaymentPlan(
+            debtID: debt.id,
+            periodIndex: 1,
+            periodType: .regular,
+            periodStartDate: date(2026, 1, 1),
+            periodEndDate: date(2026, 1, 31),
+            dueDate: date(2026, 1, 10),
+            scheduledPrincipal: 100,
+            scheduledInterest: 20,
+            remainingPrincipalBeforePayment: 1000,
+            remainingPrincipalAfterScheduledPayment: 900
+        )
+        let percentageRule = LoanCalculationRule(
+            debtID: debt.id,
+            overdueBaseType: .currentRemainingScheduledAmount,
+            overdueFeeMode: .percentage,
+            overdueFeeRate: decimal("0.10"),
+            penaltyInterestMode: .fixedDailyRate,
+            fixedPenaltyDailyRate: decimal("0.01")
+        )
+
+        let created = try #require(engine.makeOrUpdateOverdueRecord(
+            for: plan,
+            debt: debt,
+            rule: percentageRule,
+            today: date(2026, 1, 20)
+        ))
+
+        #expect(created.overdueDays == 10)
+        #expect(created.overdueBaseAmount == 120)
+        #expect(created.overdueFee == 12)
+        #expect(created.penaltyInterest == 12)
+        #expect(plan.status == .overdue)
+        #expect(plan.remainingTotalAmount == 144)
+
+        plan.paidPrincipal = 40
+        plan.remainingPrincipal = 60
+        plan.paidTotalAmount = 40
+        let disabledRule = LoanCalculationRule(
+            debtID: debt.id,
+            overdueFeeMode: .disabled,
+            penaltyInterestMode: .disabled
+        )
+        let updated = try #require(engine.makeOrUpdateOverdueRecord(
+            for: plan,
+            debt: debt,
+            existingRecord: created,
+            rule: disabledRule,
+            today: date(2026, 1, 25)
+        ))
+
+        #expect(updated === created)
+        #expect(updated.generatesOverdueFee == false)
+        #expect(updated.generatesPenaltyInterest == false)
+        #expect(plan.status == .partiallyPaid)
+
+        let userManaged = LoanOverdueRecord(
+            debtID: debt.id,
+            planID: plan.id,
+            source: .userCreated,
+            isUserManaged: true,
+            overdueStartDate: date(2026, 1, 10),
+            overdueDays: 1,
+            overdueBaseAmount: 10
+        )
+        let unchanged = try #require(engine.makeOrUpdateOverdueRecord(
+            for: plan,
+            debt: debt,
+            existingRecord: userManaged,
+            rule: percentageRule,
+            today: date(2026, 1, 26)
+        ))
+
+        #expect(unchanged.overdueDays == 1)
+
+        updated.status = .closed
+        #expect(engine.status(for: plan, overdueRecord: updated) == .closed)
+        plan.remainingPrincipal = 0
+        plan.remainingInterest = 0
+        updated.paidOverdueFee = updated.overdueFee
+        updated.paidPenaltyInterest = updated.penaltyInterest
+        #expect(engine.status(for: plan, overdueRecord: updated) == .paid)
+    }
+
+    @Test
+    func personalLendingCoreUpdateAndOverdueRefreshCoverStateTransitions() throws {
+        let service = PersonalLendingDebtService()
+        let (_, plannedDebt, generatedPlans) = try service.createDebt(
+            PersonalLendingDebtInput(
+                name: "Planned Friend",
+                lenderName: "Alex",
+                note: "",
+                principalAmount: 900,
+                fixedInterestAmount: 90,
+                borrowedDate: date(2026, 1, 1),
+                agreedEndDate: date(2026, 6, 10),
+                repaymentMethod: .equalPrincipalEqualInterest,
+                isInterestBearing: true,
+                monthlyRepaymentDay: 10,
+                termCount: 6
+            )
+        )
+        var plans = generatedPlans
+
+        let (_, regeneratedPlans) = try service.updateCoreFields(
+            debt: plannedDebt,
+            input: PersonalLendingDebtInput(
+                name: "Planned Friend",
+                lenderName: "Alex",
+                note: "",
+                principalAmount: 1200,
+                fixedInterestAmount: 120,
+                borrowedDate: date(2026, 1, 1),
+                agreedEndDate: date(2026, 4, 10),
+                repaymentMethod: .equalPrincipalEqualInterest,
+                isInterestBearing: true,
+                monthlyRepaymentDay: 10,
+                termCount: 4
+            ),
+            existingPayments: [],
+            plans: &plans
+        )
+
+        #expect(regeneratedPlans.count == 4)
+        #expect(plannedDebt.principalAmount == 1200)
+        #expect(plans.count == 4)
+
+        let debtLevel = PersonalLendingDebt(
+            name: "No Plan Friend",
+            lenderName: "Sam",
+            principalAmount: 500,
+            fixedInterestAmount: 0,
+            borrowedDate: date(2026, 1, 1),
+            agreedEndDate: date(2026, 1, 10),
+            repaymentMethod: .noFixedPlan,
+            isInterestBearing: false,
+            termCount: 0
+        )
+        var debtLevelOverdues: [PersonalLendingOverdueRecord] = []
+        _ = try service.refreshOverdues(
+            debt: debtLevel,
+            plans: [],
+            overdues: &debtLevelOverdues,
+            today: date(2026, 1, 20)
+        )
+
+        #expect(debtLevelOverdues.count == 1)
+        #expect(debtLevelOverdues[0].overdueDays == 10)
+        #expect(debtLevel.status == .overdue)
+
+        _ = try service.refreshOverdues(
+            debt: debtLevel,
+            plans: [],
+            overdues: &debtLevelOverdues,
+            today: date(2026, 1, 25)
+        )
+        #expect(debtLevelOverdues[0].overdueDays == 15)
+
+        _ = try service.voidOverdue(
+            debtLevelOverdues[0],
+            debt: debtLevel,
+            plan: nil,
+            plans: [],
+            overdues: debtLevelOverdues,
+            status: .ignored,
+            today: date(2026, 1, 26)
+        )
+        let ignoredCount = debtLevelOverdues.count
+        _ = try service.refreshOverdues(
+            debt: debtLevel,
+            plans: [],
+            overdues: &debtLevelOverdues,
+            today: date(2026, 1, 30)
+        )
+        #expect(debtLevelOverdues.count == ignoredCount)
+    }
+
+    @Test
+    func personalLendingManualOverdueUpdateResolvesAndReactivatesRecords() throws {
+        let service = PersonalLendingDebtService()
+        let debt = PersonalLendingDebt(
+            name: "Manual Friend",
+            lenderName: "Pat",
+            principalAmount: 600,
+            fixedInterestAmount: 0,
+            borrowedDate: date(2026, 1, 1),
+            agreedEndDate: date(2026, 1, 10),
+            repaymentMethod: .noFixedPlan,
+            isInterestBearing: false,
+            termCount: 0
+        )
+        var overdues: [PersonalLendingOverdueRecord] = []
+
+        let (_, record) = try service.createManualOverdue(
+            debt: debt,
+            plan: nil,
+            existingOverdues: &overdues,
+            input: PersonalLendingManualOverdueInput(
+                overdueAmount: 600,
+                overdueFee: 5,
+                penaltyInterest: 2,
+                startDate: date(2026, 1, 12),
+                note: "created"
+            ),
+            today: date(2026, 1, 20)
+        )
+
+        _ = try service.updateManualOverdue(
+            record,
+            debt: debt,
+            plan: nil,
+            plans: [],
+            overdues: overdues,
+            input: PersonalLendingManualOverdueInput(
+                overdueAmount: 550,
+                overdueFee: 4,
+                penaltyInterest: 1,
+                startDate: date(2026, 1, 12),
+                endDate: date(2026, 1, 18),
+                note: "resolved"
+            ),
+            today: date(2026, 1, 21)
+        )
+
+        #expect(record.source == .userAdjusted)
+        #expect(record.status == .resolved)
+        #expect(record.overdueDays == 6)
+        #expect(debt.status == .active)
+
+        _ = try service.updateManualOverdue(
+            record,
+            debt: debt,
+            plan: nil,
+            plans: [],
+            overdues: overdues,
+            input: PersonalLendingManualOverdueInput(
+                overdueAmount: 500,
+                overdueFee: 3,
+                penaltyInterest: 1,
+                startDate: date(2026, 1, 13),
+                note: "active again"
+            ),
+            today: date(2026, 1, 22)
+        )
+
+        #expect(record.status == .active)
+        #expect(record.overdueEndDate == nil)
+        #expect(debt.status == .overdue)
     }
 }

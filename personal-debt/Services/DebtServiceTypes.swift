@@ -15,8 +15,6 @@ enum DebtServiceError: Error, Equatable {
 struct CreditCardDebtInput: Equatable {
     var name: String
     var bankName: String
-    var lastFourDigits: String
-    var creditLimit: Decimal?
     var note: String
     var billingDay: Int
     var dueDay: Int
@@ -25,8 +23,6 @@ struct CreditCardDebtInput: Equatable {
     init(
         name: String,
         bankName: String = "",
-        lastFourDigits: String = "",
-        creditLimit: Decimal? = nil,
         note: String = "",
         billingDay: Int,
         dueDay: Int,
@@ -34,8 +30,6 @@ struct CreditCardDebtInput: Equatable {
     ) {
         self.name = name
         self.bankName = bankName
-        self.lastFourDigits = lastFourDigits
-        self.creditLimit = creditLimit
         self.note = note
         self.billingDay = billingDay
         self.dueDay = dueDay
@@ -48,6 +42,46 @@ struct CreditCardStatementInput: Equatable {
     var dueDate: Date
     var statementAmount: Decimal
     var minimumPaymentAmount: Decimal?
+}
+
+struct CreditCardCalculationRuleInput: Equatable {
+    var debtID: UUID?
+    var minimumPaymentRatio: Decimal
+    var minimumPaymentFloor: Decimal
+    var revolvingInterestEnabled: Bool
+    var revolvingDailyRate: Decimal
+    var overdueFeeRate: Decimal
+    var minimumOverdueFee: Decimal
+    var fixedOverdueFee: Decimal?
+    var penaltyBaseType: LoanPenaltyBaseType
+    var penaltyDailyRate: Decimal
+    var currentPurchaseFallbackMode: String
+
+    init(
+        debtID: UUID? = nil,
+        minimumPaymentRatio: Decimal = Decimal(string: "0.10") ?? 0.10,
+        minimumPaymentFloor: Decimal = 0,
+        revolvingInterestEnabled: Bool = true,
+        revolvingDailyRate: Decimal = Decimal(string: "0.0005") ?? 0.0005,
+        overdueFeeRate: Decimal = Decimal(string: "0.005") ?? 0.005,
+        minimumOverdueFee: Decimal = 25,
+        fixedOverdueFee: Decimal? = nil,
+        penaltyBaseType: LoanPenaltyBaseType = .unpaidAmount,
+        penaltyDailyRate: Decimal = Decimal(string: "0.0005") ?? 0.0005,
+        currentPurchaseFallbackMode: String = "zero"
+    ) {
+        self.debtID = debtID
+        self.minimumPaymentRatio = minimumPaymentRatio
+        self.minimumPaymentFloor = minimumPaymentFloor
+        self.revolvingInterestEnabled = revolvingInterestEnabled
+        self.revolvingDailyRate = revolvingDailyRate
+        self.overdueFeeRate = overdueFeeRate
+        self.minimumOverdueFee = minimumOverdueFee
+        self.fixedOverdueFee = fixedOverdueFee
+        self.penaltyBaseType = penaltyBaseType
+        self.penaltyDailyRate = penaltyDailyRate
+        self.currentPurchaseFallbackMode = currentPurchaseFallbackMode
+    }
 }
 
 struct CreditCardPaymentInput: Equatable {
