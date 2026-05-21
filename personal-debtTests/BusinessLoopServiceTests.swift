@@ -576,6 +576,39 @@ struct BusinessLoopServiceTests {
     }
 
     @Test
+    func loanServiceAutoSettlesHistoricalPlansForInProgressLoans() throws {
+        let service = LoanDebtService()
+        let (_, debt, plans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Managed Loan",
+                creditorName: "Bank",
+                note: "",
+                entryMode: .inProgressLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 1000,
+                openingPrincipalForManagement: 600,
+                annualInterestRate: 0,
+                startDate: date(2026, 1, 1),
+                managementStartDate: date(2026, 4, 15),
+                endDate: date(2026, 6, 10),
+                repaymentDay: 10,
+                termCount: 0,
+                currencyCode: "USD"
+            )
+        )
+
+        let historicalPlans = plans.filter { $0.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason }
+        let managedPlans = plans.filter { $0.lockReason != LoanScheduleEngine.autoSettledHistoryLockReason }
+
+        #expect(debt.termCount == plans.count)
+        #expect(historicalPlans.count == 4)
+        #expect(historicalPlans.allSatisfy { $0.status == .paid })
+        #expect(historicalPlans.allSatisfy { $0.remainingTotalAmount == 0 })
+        #expect(managedPlans.first?.dueDate == date(2026, 5, 10))
+        #expect(managedPlans.first?.remainingPrincipalBeforePayment == 600)
+    }
+
+    @Test
     func loanServiceUpdatesCoreFieldsManualOverduesAndPaymentMutations() throws {
         let service = LoanDebtService()
         let (_, debt, initialPlans) = try service.createDebt(

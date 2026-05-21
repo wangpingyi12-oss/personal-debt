@@ -110,7 +110,7 @@ struct CoreEngineTests {
     }
 
     @Test
-    func loanInProgressUsesOpeningPrincipalAndManagementTermCount() throws {
+    func loanInProgressAutoSettlesHistoricalPlansAndUsesOpeningPrincipalForManagedPlans() throws {
         let debt = LoanDebt(
             name: "Loan",
             entryMode: .inProgressLoan,
@@ -127,13 +127,20 @@ struct CoreEngineTests {
 
         let plans = try LoanScheduleEngine().generatePlans(for: debt)
 
-        #expect(plans.count == 3)
-        #expect(plans[0].dueDate == date(2026, 5, 31))
-        #expect(plans[1].dueDate == date(2026, 6, 30))
-        #expect(plans[2].dueDate == date(2026, 7, 31))
-        #expect(plans[0].scheduledPrincipal == 2000)
-        #expect(plans[0].scheduledInterest == 60)
-        #expect(plans[0].remainingPrincipalBeforePayment == 6000)
+        #expect(plans.count == 7)
+        #expect(plans[0].dueDate == date(2026, 1, 31))
+        #expect(plans[1].dueDate == date(2026, 2, 28))
+        #expect(plans[2].dueDate == date(2026, 3, 31))
+        #expect(plans[3].dueDate == date(2026, 4, 30))
+        #expect(plans[0].status == .paid)
+        #expect(plans[0].remainingTotalAmount == 0)
+        #expect(plans[0].lockReason == LoanScheduleEngine.autoSettledHistoryLockReason)
+        #expect(plans[4].dueDate == date(2026, 5, 31))
+        #expect(plans[5].dueDate == date(2026, 6, 30))
+        #expect(plans[6].dueDate == date(2026, 7, 31))
+        #expect(plans[4].scheduledPrincipal == 2000)
+        #expect(plans[4].scheduledInterest == 60)
+        #expect(plans[4].remainingPrincipalBeforePayment == 6000)
     }
 
     @Test
@@ -155,6 +162,49 @@ struct CoreEngineTests {
             #expect(plans.isEmpty == false)
             #expect(plans.last?.remainingPrincipalAfterScheduledPayment == 0)
         }
+    }
+
+    @Test
+    func loanScheduleComputesTermCountFromDatesAndPinsLastDueDateToLoanEndDate() throws {
+        let debt = LoanDebt(
+            name: "Auto terms",
+            repaymentMethod: .equalPrincipal,
+            originalPrincipal: 1200,
+            annualInterestRate: decimal("0.12"),
+            startDate: date(2026, 1, 5),
+            endDate: date(2026, 4, 18),
+            repaymentDay: 10,
+            termCount: 1
+        )
+
+        let plans = try LoanScheduleEngine().generatePlans(for: debt)
+
+        #expect(plans.count == 5)
+        #expect(plans[0].dueDate == date(2026, 1, 10))
+        #expect(plans[1].dueDate == date(2026, 2, 10))
+        #expect(plans[2].dueDate == date(2026, 3, 10))
+        #expect(plans[3].dueDate == date(2026, 4, 10))
+        #expect(plans[4].dueDate == date(2026, 4, 18))
+        #expect(plans.last?.periodType == .finalPartialPeriod)
+    }
+
+    @Test
+    func loanScheduleStillUsesLoanEndDateAsFinalDueDateWhenRepaymentDayMatches() throws {
+        let debt = LoanDebt(
+            name: "Exact end day",
+            repaymentMethod: .equalPayment,
+            originalPrincipal: 1000,
+            annualInterestRate: decimal("0.12"),
+            startDate: date(2026, 1, 1),
+            endDate: date(2026, 3, 10),
+            repaymentDay: 10,
+            termCount: 99
+        )
+
+        let plans = try LoanScheduleEngine().generatePlans(for: debt)
+
+        #expect(plans.last?.dueDate == date(2026, 3, 10))
+        #expect(plans.last?.periodType == .regular)
     }
 
     @Test
@@ -561,6 +611,26 @@ struct CoreEngineTests {
         } catch {
             #expect(error as? PersonalLendingPaymentError == .overpaymentNotAllowed)
         }
+    }
+
+    @Test
+    func firstRepaymentDateUsesSameMonthWhenStartDateIsOnOrBeforeRepaymentDay() {
+        let policy = DateCalculationPolicy.standard
+
+        let onRepaymentDay = policy.firstRepaymentDate(after: date(2026, 5, 10), dayOfMonth: 10)
+        let beforeRepaymentDay = policy.firstRepaymentDate(after: date(2026, 5, 9), dayOfMonth: 10)
+
+        #expect(onRepaymentDay == date(2026, 5, 10))
+        #expect(beforeRepaymentDay == date(2026, 5, 10))
+    }
+
+    @Test
+    func firstRepaymentDateUsesNextMonthWhenStartDateIsAfterRepaymentDay() {
+        let policy = DateCalculationPolicy.standard
+
+        let result = policy.firstRepaymentDate(after: date(2026, 5, 11), dayOfMonth: 10)
+
+        #expect(result == date(2026, 6, 10))
     }
 
     @Test

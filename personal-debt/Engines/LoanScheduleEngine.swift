@@ -2,11 +2,12 @@ import Foundation
 
 enum LoanScheduleError: Error, Equatable {
     case startDateAfterEndDate
-    case invalidTermCount
     case invalidRepaymentDay
 }
 
 struct LoanScheduleEngine {
+    static let autoSettledHistoryLockReason = "autoSettledHistory"
+
     var roundingPolicy: MoneyRoundingPolicy
     var datePolicy: DateCalculationPolicy
 
@@ -18,28 +19,39 @@ struct LoanScheduleEngine {
     func generatePlans(for debt: LoanDebt) throws -> [LoanRepaymentPlan] {
         let planStartDate = planGenerationStartDate(for: debt)
         guard planStartDate <= debt.endDate else { throw LoanScheduleError.startDateAfterEndDate }
-        guard debt.termCount > 0 else { throw LoanScheduleError.invalidTermCount }
         guard (1...31).contains(debt.repaymentDay) else { throw LoanScheduleError.invalidRepaymentDay }
 
-        let periods = generatedPeriods(
+        let managedPeriods = generatedPeriods(
             startDate: planStartDate,
             endDate: debt.endDate,
-            repaymentDay: debt.repaymentDay,
-            maxRegularTerms: debt.termCount
+            repaymentDay: debt.repaymentDay
         )
 
-        let regularTermCount = max(periods.filter { $0.type == .regular }.count, 1)
+        let historicalPlans: [LoanRepaymentPlan]
+        if debt.entryMode == .inProgressLoan {
+            let firstManagedDueDate = managedPeriods.first?.dueDate ?? debt.endDate
+            historicalPlans = historicalPaidPlans(
+                debtID: debt.id,
+                startDate: debt.startDate,
+                cutoffDate: firstManagedDueDate,
+                repaymentDay: debt.repaymentDay
+            )
+        } else {
+            historicalPlans = []
+        }
+
+        let regularTermCount = max(managedPeriods.filter { $0.type == .regular }.count, 1)
         let principal = debt.openingPrincipalForManagement
         let monthlyRate = debt.annualInterestRate / Decimal(12)
         let equalPrincipalValues = roundingPolicy.allocateEvenly(total: principal, count: regularTermCount)
         let equalPaymentAmount = equalPayment(principal: principal, monthlyRate: monthlyRate, termCount: regularTermCount)
 
         var remainingPrincipal = principal
-        var plans: [LoanRepaymentPlan] = []
+        var plans: [LoanRepaymentPlan] = historicalPlans
 
-        for (offset, period) in periods.enumerated() {
-            let index = offset + 1
-            let isLast = index == periods.count
+        for (offset, period) in managedPeriods.enumerated() {
+            let index = historicalPlans.count + offset + 1
+            let isLast = offset == managedPeriods.count - 1
             let scheduledPrincipal: Decimal
             let scheduledInterest: Decimal
 
@@ -110,14 +122,13 @@ struct LoanScheduleEngine {
     private func generatedPeriods(
         startDate: Date,
         endDate: Date,
-        repaymentDay: Int,
-        maxRegularTerms: Int
+        repaymentDay: Int
     ) -> [(startDate: Date, endDate: Date, dueDate: Date, type: LoanPlanPeriodType)] {
         var periods: [(startDate: Date, endDate: Date, dueDate: Date, type: LoanPlanPeriodType)] = []
         var dueDate = datePolicy.firstRepaymentDate(after: startDate, dayOfMonth: repaymentDay)
         var periodStart = startDate
 
-        while dueDate <= endDate && periods.count < maxRegularTerms {
+        while dueDate <= endDate {
             periods.append((periodStart, dueDate, dueDate, .regular))
             periodStart = dueDate
             dueDate = datePolicy.addingMonths(1, to: dueDate, matchingDay: repaymentDay)
@@ -132,5 +143,50 @@ struct LoanScheduleEngine {
         }
 
         return periods
+    }
+
+    private func historicalPaidPlans(
+        debtID: UUID,
+        startDate: Date,
+        cutoffDate: Date,
+        repaymentDay: Int
+    ) -> [LoanRepaymentPlan] {
+        var periods: [(startDate: Date, endDate: Date, dueDate: Date)] = []
+        var dueDate = datePolicy.firstRepaymentDate(after: startDate, dayOfMonth: repaymentDay)
+        var periodStart = startDate
+
+        while dueDate < cutoffDate {
+            periods.append((periodStart, dueDate, dueDate))
+            periodStart = dueDate
+            dueDate = datePolicy.addingMonths(1, to: dueDate, matchingDay: repaymentDay)
+        }
+
+        return periods.enumerated().map { offset, period in
+            let plan = LoanRepaymentPlan(
+                debtID: debtID,
+                periodIndex: offset + 1,
+                periodType: .regular,
+                periodStartDate: period.startDate,
+                periodEndDate: period.endDate,
+                dueDate: period.dueDate,
+                scheduledPrincipal: 0,
+                scheduledInterest: 0,
+                remainingPrincipalBeforePayment: 0,
+                remainingPrincipalAfterScheduledPayment: 0,
+                lockReason: Self.autoSettledHistoryLockReason
+            )
+            plan.status = .paid
+            plan.remainingPrincipal = 0
+            plan.remainingInterest = 0
+            plan.remainingOverdueFee = 0
+            plan.remainingPenaltyInterest = 0
+            plan.remainingTotalAmount = 0
+            plan.paidPrincipal = 0
+            plan.paidInterest = 0
+            plan.paidOverdueFee = 0
+            plan.paidPenaltyInterest = 0
+            plan.paidTotalAmount = 0
+            return plan
+        }
     }
 }

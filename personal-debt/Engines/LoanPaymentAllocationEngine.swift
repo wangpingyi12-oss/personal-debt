@@ -78,6 +78,20 @@ struct LoanPaymentAllocationEngine {
 
     private func reset(plans: [LoanRepaymentPlan], overdues: [LoanOverdueRecord]) {
         for plan in plans {
+            if plan.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason {
+                plan.paidPrincipal = 0
+                plan.paidInterest = 0
+                plan.paidOverdueFee = 0
+                plan.paidPenaltyInterest = 0
+                plan.paidTotalAmount = 0
+                plan.remainingPrincipal = 0
+                plan.remainingInterest = 0
+                plan.remainingOverdueFee = 0
+                plan.remainingPenaltyInterest = 0
+                plan.remainingTotalAmount = 0
+                plan.status = .paid
+                continue
+            }
             plan.paidPrincipal = 0
             plan.paidInterest = 0
             plan.paidOverdueFee = 0

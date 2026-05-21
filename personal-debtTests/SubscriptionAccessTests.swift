@@ -110,7 +110,7 @@ struct SubscriptionAccessTests {
         #expect(options[0].priceText == "$2.49")
         #expect(options[0].isFallbackPrice == false)
         #expect(options[1].id == SubscriptionCatalog.yearlyProductID)
-        #expect(options[1].priceText == "$17.99")
+        #expect(options[1].priceText == SubscriptionCatalog.fallbackOptions[1].priceText)
         #expect(options[1].isFallbackPrice)
     }
 

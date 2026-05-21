@@ -25,7 +25,7 @@ struct DateCalculationPolicy: Sendable {
 
     func firstRepaymentDate(after startDate: Date, dayOfMonth: Int) -> Date {
         let candidate = date(inMonthContaining: startDate, day: dayOfMonth)
-        if candidate > startDate {
+        if startOfDay(candidate) >= startOfDay(startDate) {
             return candidate
         }
         let nextMonth = calendar.date(byAdding: .month, value: 1, to: startDate) ?? startDate

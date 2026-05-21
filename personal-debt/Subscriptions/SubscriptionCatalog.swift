@@ -10,13 +10,17 @@ enum SubscriptionCatalog {
     static let privacyPolicyURL = URL(string: "https://wangpingyi12-oss.github.io/personal-debt/privacy-policy-en-US.html")!
     static let applePrivacyURL = URL(string: "https://www.apple.com/legal/privacy/")!
     static let manageSubscriptionsURL = URL(string: "https://apps.apple.com/account/subscriptions")!
+    private static let fallbackPriceText = String(
+        localized: "subscription.price.appStore",
+        defaultValue: "App Store price"
+    )
 
     static let fallbackOptions: [SubscriptionProductOption] = [
         SubscriptionProductOption(
             id: monthlyProductID,
             title: String(localized: "subscription.premium", defaultValue: "Premium"),
             durationText: String(localized: "subscription.monthly.duration", defaultValue: "1 month"),
-            priceText: "$1.99",
+            priceText: fallbackPriceText,
             calloutText: String.localizedStringWithFormat(
                 String(localized: "subscription.autoRenewsEvery", defaultValue: "Auto-renews every %@"),
                 String(localized: "subscription.monthly.duration", defaultValue: "1 month")
@@ -27,7 +31,7 @@ enum SubscriptionCatalog {
             id: yearlyProductID,
             title: String(localized: "subscription.premium", defaultValue: "Premium"),
             durationText: String(localized: "subscription.yearly.duration", defaultValue: "1 year"),
-            priceText: "$17.99",
+            priceText: fallbackPriceText,
             calloutText: String.localizedStringWithFormat(
                 String(localized: "subscription.autoRenewsEvery", defaultValue: "Auto-renews every %@"),
                 String(localized: "subscription.yearly.duration", defaultValue: "1 year")

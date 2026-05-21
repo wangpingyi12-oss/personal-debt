@@ -48,10 +48,11 @@ final class LoanDebtService {
                 managementStartDate: input.managementStartDate,
                 endDate: input.endDate,
                 repaymentDay: input.repaymentDay,
-                termCount: input.termCount,
+                termCount: 1,
                 currencyCode: input.currencyCode
             )
             let plans = try scheduleEngine.generatePlans(for: debt)
+            debt.termCount = plans.count
             insert(debt)
             plans.forEach(insert)
             try markAnalyticsDirty([.debt, .overdue, .cost])
@@ -108,11 +109,11 @@ final class LoanDebtService {
             debt.managementStartDate = input.managementStartDate
             debt.endDate = input.endDate
             debt.repaymentDay = input.repaymentDay
-            debt.termCount = input.termCount
             debt.currencyCode = input.currencyCode
             debt.status = .active
             debt.updatedAt = Date()
             let regeneratedPlans = try scheduleEngine.generatePlans(for: debt)
+            debt.termCount = regeneratedPlans.count
             plans = regeneratedPlans
             regeneratedPlans.forEach(insert)
             try markAnalyticsDirty(.all)
@@ -702,9 +703,6 @@ final class LoanDebtService {
         }
         guard (1...31).contains(input.repaymentDay) else {
             throw DebtServiceError.validationFailed("Repayment day must be between 1 and 31.")
-        }
-        guard input.termCount > 0 else {
-            throw DebtServiceError.validationFailed("Term count must be greater than 0.")
         }
     }
 
