@@ -443,6 +443,74 @@ struct AnalyticsServiceTests {
     }
 
     @Test
+    func completedAutoDetectedLoanKeepsPaidOffStateAndCostSemanticsAfterAllocationReset() throws {
+        let service = LoanDebtService()
+        let today = date(2026, 5, 21)
+        let (_, debt, plans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Completed Loan",
+                creditorName: "Bank",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 1_200,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2025, 1, 1),
+                endDate: date(2025, 12, 1),
+                repaymentDay: 1,
+                termCount: 1,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
+        )
+
+        let result = LoanPaymentAllocationEngine().rebuildAllocations(
+            payments: [],
+            plans: plans,
+            overdues: []
+        )
+        let expectedInterest = plans.reduce(Decimal(0)) { $0 + $1.scheduledInterest }
+
+        let debtAnalytics = DebtAnalyticsService().generate(
+            creditCardDebts: [],
+            creditCardStatements: [],
+            loanDebts: [debt],
+            loanPlans: plans,
+            personalLendingDebts: [],
+            personalLendingPlans: [],
+            period: AnalyticsSupport.monthPeriod(containing: today)
+        )
+        let costAnalytics = CostAnalyticsService().generate(
+            creditCardDebts: [],
+            creditCardStatements: [],
+            creditCardBreakdowns: [],
+            loanDebts: [debt],
+            loanPlans: plans,
+            loanOverdues: [],
+            personalLendingDebts: [],
+            personalLendingPlans: []
+        )
+
+        if case .allocated = result.result {
+            #expect(Bool(true))
+        } else {
+            #expect(Bool(false))
+        }
+        #expect(result.details.isEmpty)
+        #expect(debt.status == .paidOff)
+        #expect(debt.outstandingPrincipal == 0)
+        #expect(debtAnalytics.loanRemainingAmount == 0)
+        #expect(debtAnalytics.paidOffDebtCount == 1)
+        #expect(plans.allSatisfy { $0.status == .paid })
+        #expect(plans.allSatisfy { $0.remainingTotalAmount == 0 })
+        #expect(plans.allSatisfy { $0.paidPrincipal == $0.scheduledPrincipal })
+        #expect(plans.allSatisfy { $0.paidInterest == $0.scheduledInterest })
+        #expect(costAnalytics.totalInterestAmount == expectedInterest)
+        #expect(costAnalytics.loanCostAmount == expectedInterest)
+        #expect(costAnalytics.loanAppAllocatedPaidInterestAmount == expectedInterest)
+    }
+
+    @Test
     func coordinatorUpsertsDailySnapshotsAndClearsDirtyState() throws {
         let container = try makeContainer()
         let context = container.mainContext

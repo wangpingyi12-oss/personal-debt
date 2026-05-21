@@ -136,6 +136,7 @@ struct LoanDebtInput: Equatable {
     var repaymentDay: Int
     var termCount: Int
     var currencyCode: String
+    var autoDetectLifecycleFromDates: Bool
 
     init(
         name: String,
@@ -151,7 +152,8 @@ struct LoanDebtInput: Equatable {
         endDate: Date,
         repaymentDay: Int,
         termCount: Int,
-        currencyCode: String = Locale.current.currency?.identifier ?? "USD"
+        currencyCode: String = Locale.current.currency?.identifier ?? "USD",
+        autoDetectLifecycleFromDates: Bool = false
     ) {
         self.name = name
         self.creditorName = creditorName
@@ -167,6 +169,7 @@ struct LoanDebtInput: Equatable {
         self.repaymentDay = repaymentDay
         self.termCount = termCount
         self.currencyCode = currencyCode
+        self.autoDetectLifecycleFromDates = autoDetectLifecycleFromDates
     }
 }
 

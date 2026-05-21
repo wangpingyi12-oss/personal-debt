@@ -29,29 +29,32 @@ final class LoanDebtService {
         self.writeAccessAuthorizer = writeAccessAuthorizer ?? UnrestrictedWriteAccessAuthorizer.shared
     }
 
-    func createDebt(_ input: LoanDebtInput) throws -> (DebtServiceResult, LoanDebt, [LoanRepaymentPlan]) {
+    func createDebt(_ input: LoanDebtInput, today: Date = Date()) throws -> (DebtServiceResult, LoanDebt, [LoanRepaymentPlan]) {
         try perform {
             try validateDebtInput(input)
-            let openingPrincipal = input.entryMode == .newLoan
-                ? input.originalPrincipal
-                : (input.openingPrincipalForManagement ?? input.originalPrincipal)
+            let normalized = try normalizedLifecycleInput(from: input, today: today)
             let debt = LoanDebt(
                 name: input.name,
                 creditorName: input.creditorName,
                 note: input.note,
-                entryMode: input.entryMode,
+                entryMode: normalized.entryMode,
                 repaymentMethod: input.repaymentMethod,
                 originalPrincipal: input.originalPrincipal,
-                openingPrincipalForManagement: openingPrincipal,
+                openingPrincipalForManagement: normalized.openingPrincipal,
                 annualInterestRate: input.annualInterestRate,
                 startDate: input.startDate,
-                managementStartDate: input.managementStartDate,
+                managementStartDate: normalized.managementStartDate,
                 endDate: input.endDate,
                 repaymentDay: input.repaymentDay,
                 termCount: 1,
                 currencyCode: input.currencyCode
             )
             let plans = try scheduleEngine.generatePlans(for: debt)
+            if normalized.autoSettleAllPlans {
+                autoSettleCompletedPlans(plans)
+                debt.outstandingPrincipal = 0
+                debt.status = .paidOff
+            }
             debt.termCount = plans.count
             insert(debt)
             plans.forEach(insert)
@@ -83,7 +86,8 @@ final class LoanDebtService {
         debt: LoanDebt,
         input: LoanDebtInput,
         existingPayments: [LoanPaymentRecord],
-        plans: inout [LoanRepaymentPlan]
+        plans: inout [LoanRepaymentPlan],
+        today: Date = Date()
     ) throws -> (DebtServiceResult, [LoanRepaymentPlan]) {
         try perform {
             try validateDebtInput(input)
@@ -93,26 +97,29 @@ final class LoanDebtService {
             for plan in plans {
                 modelContext?.delete(plan)
             }
-            let openingPrincipal = input.entryMode == .newLoan
-                ? input.originalPrincipal
-                : (input.openingPrincipalForManagement ?? input.originalPrincipal)
+            let normalized = try normalizedLifecycleInput(from: input, today: today)
             debt.name = input.name
             debt.creditorName = input.creditorName
             debt.note = input.note
-            debt.entryMode = input.entryMode
+            debt.entryMode = normalized.entryMode
             debt.repaymentMethod = input.repaymentMethod
             debt.originalPrincipal = input.originalPrincipal
-            debt.openingPrincipalForManagement = openingPrincipal
-            debt.outstandingPrincipal = openingPrincipal
+            debt.openingPrincipalForManagement = normalized.openingPrincipal
+            debt.outstandingPrincipal = normalized.openingPrincipal
             debt.annualInterestRate = input.annualInterestRate
             debt.startDate = input.startDate
-            debt.managementStartDate = input.managementStartDate
+            debt.managementStartDate = normalized.managementStartDate
             debt.endDate = input.endDate
             debt.repaymentDay = input.repaymentDay
             debt.currencyCode = input.currencyCode
             debt.status = .active
             debt.updatedAt = Date()
             let regeneratedPlans = try scheduleEngine.generatePlans(for: debt)
+            if normalized.autoSettleAllPlans {
+                autoSettleCompletedPlans(regeneratedPlans)
+                debt.outstandingPrincipal = 0
+                debt.status = .paidOff
+            }
             debt.termCount = regeneratedPlans.count
             plans = regeneratedPlans
             regeneratedPlans.forEach(insert)
@@ -676,12 +683,14 @@ final class LoanDebtService {
         guard input.originalPrincipal > 0 else {
             throw DebtServiceError.validationFailed("Original principal must be greater than 0.")
         }
-        if let openingPrincipalForManagement = input.openingPrincipalForManagement {
-            guard openingPrincipalForManagement > 0 else {
-                throw DebtServiceError.validationFailed("Opening principal for management must be greater than 0.")
-            }
-            guard openingPrincipalForManagement <= input.originalPrincipal else {
-                throw DebtServiceError.validationFailed("Opening principal for management must not exceed original principal.")
+        if input.autoDetectLifecycleFromDates == false {
+            if let openingPrincipalForManagement = input.openingPrincipalForManagement {
+                guard openingPrincipalForManagement > 0 else {
+                    throw DebtServiceError.validationFailed("Opening principal for management must be greater than 0.")
+                }
+                guard openingPrincipalForManagement <= input.originalPrincipal else {
+                    throw DebtServiceError.validationFailed("Opening principal for management must not exceed original principal.")
+                }
             }
         }
         guard input.annualInterestRate >= 0 else {
@@ -690,7 +699,7 @@ final class LoanDebtService {
         guard input.startDate <= input.endDate else {
             throw DebtServiceError.validationFailed("Start date must not be later than end date.")
         }
-        if input.entryMode == .inProgressLoan {
+        if input.autoDetectLifecycleFromDates == false, input.entryMode == .inProgressLoan {
             guard let managementStartDate = input.managementStartDate else {
                 throw DebtServiceError.validationFailed("Management start date is required for in-progress loans.")
             }
@@ -733,6 +742,119 @@ final class LoanDebtService {
     private func validateNonNegative(_ amount: Decimal, field: String) throws {
         guard amount >= 0 else {
             throw DebtServiceError.validationFailed("\(field) must not be negative.")
+        }
+    }
+
+    private struct NormalizedLoanLifecycleInput {
+        var entryMode: LoanEntryMode
+        var managementStartDate: Date?
+        var openingPrincipal: Decimal
+        var autoSettleAllPlans: Bool
+    }
+
+    private enum LoanLifecycleStage {
+        case notStarted
+        case inProgress(managementStartDate: Date)
+        case completed
+    }
+
+    private func normalizedLifecycleInput(from input: LoanDebtInput, today: Date) throws -> NormalizedLoanLifecycleInput {
+        guard input.autoDetectLifecycleFromDates else {
+            let openingPrincipal = input.entryMode == .newLoan
+                ? input.originalPrincipal
+                : (input.openingPrincipalForManagement ?? input.originalPrincipal)
+            return NormalizedLoanLifecycleInput(
+                entryMode: input.entryMode,
+                managementStartDate: input.managementStartDate,
+                openingPrincipal: openingPrincipal,
+                autoSettleAllPlans: false
+            )
+        }
+
+        switch lifecycleStage(startDate: input.startDate, endDate: input.endDate, today: today) {
+        case .notStarted:
+            return NormalizedLoanLifecycleInput(
+                entryMode: .newLoan,
+                managementStartDate: nil,
+                openingPrincipal: input.originalPrincipal,
+                autoSettleAllPlans: false
+            )
+        case .inProgress(let managementStartDate):
+            let openingPrincipal = try inferredOpeningPrincipalForInProgressLoan(input: input, managementStartDate: managementStartDate)
+            return NormalizedLoanLifecycleInput(
+                entryMode: .inProgressLoan,
+                managementStartDate: managementStartDate,
+                openingPrincipal: openingPrincipal,
+                autoSettleAllPlans: false
+            )
+        case .completed:
+            return NormalizedLoanLifecycleInput(
+                entryMode: .newLoan,
+                managementStartDate: nil,
+                openingPrincipal: input.originalPrincipal,
+                autoSettleAllPlans: true
+            )
+        }
+    }
+
+    private func lifecycleStage(startDate: Date, endDate: Date, today: Date) -> LoanLifecycleStage {
+        let policy = scheduleEngine.datePolicy
+        let todayDay = policy.startOfDay(today)
+        let startDay = policy.startOfDay(startDate)
+        let endDay = policy.startOfDay(endDate)
+        if todayDay < startDay {
+            return .notStarted
+        }
+        if todayDay > endDay {
+            return .completed
+        }
+        return .inProgress(managementStartDate: max(todayDay, startDay))
+    }
+
+    private func inferredOpeningPrincipalForInProgressLoan(input: LoanDebtInput, managementStartDate: Date) throws -> Decimal {
+        let projectedDebt = LoanDebt(
+            name: input.name,
+            creditorName: input.creditorName,
+            note: input.note,
+            entryMode: .newLoan,
+            repaymentMethod: input.repaymentMethod,
+            originalPrincipal: input.originalPrincipal,
+            openingPrincipalForManagement: input.originalPrincipal,
+            annualInterestRate: input.annualInterestRate,
+            startDate: input.startDate,
+            managementStartDate: nil,
+            endDate: input.endDate,
+            repaymentDay: input.repaymentDay,
+            termCount: 1,
+            currencyCode: input.currencyCode
+        )
+        let fullPlans = try scheduleEngine.generatePlans(for: projectedDebt)
+        let policy = scheduleEngine.datePolicy
+        let firstDueAfterManagementStart = policy.firstRepaymentDate(after: managementStartDate, dayOfMonth: input.repaymentDay)
+        let cutoffDate = policy.startOfDay(firstDueAfterManagementStart) > policy.startOfDay(input.endDate)
+            ? policy.startOfDay(input.endDate)
+            : policy.startOfDay(firstDueAfterManagementStart)
+        let historicalPlans = fullPlans.filter { policy.startOfDay($0.dueDate) < cutoffDate }
+        if let lastHistorical = historicalPlans.last {
+            return roundingPolicy.round(maxDecimal(lastHistorical.remainingPrincipalAfterScheduledPayment, 0))
+        }
+        return input.originalPrincipal
+    }
+
+    private func autoSettleCompletedPlans(_ plans: [LoanRepaymentPlan]) {
+        for plan in plans {
+            plan.lockReason = LoanScheduleEngine.autoSettledHistoryLockReason
+            plan.status = .paid
+            plan.remainingPrincipal = 0
+            plan.remainingInterest = 0
+            plan.remainingOverdueFee = 0
+            plan.remainingPenaltyInterest = 0
+            plan.remainingTotalAmount = 0
+            plan.paidPrincipal = plan.scheduledPrincipal
+            plan.paidInterest = plan.scheduledInterest
+            plan.paidOverdueFee = 0
+            plan.paidPenaltyInterest = 0
+            plan.paidTotalAmount = plan.scheduledTotalAmount
         }
     }
 

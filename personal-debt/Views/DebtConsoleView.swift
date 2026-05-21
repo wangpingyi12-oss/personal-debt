@@ -852,15 +852,15 @@ private struct DebtDetailScreen: View {
                 }
             }
 
-            TimelineSection(
-                title: AppText.string("detail.plans", defaultValue: "Repayment Plan"),
-                rows: detail.plans.prefix(12).map {
-                    TimelineRowData(
+            HorizontalPlanCarousel(
+                rows: detail.plans.map {
+                    HorizontalPlanRow(
+                        id: $0.id.uuidString,
                         title: String(format: AppText.string("format.period", defaultValue: "Period %d"), $0.periodIndex),
                         date: $0.dueDate,
-                        amount: $0.remainingTotalAmount,
+                        amount: loanPlanDisplayAmount($0),
                         status: AppText.planStatus($0.status),
-                        color: planStatusColor($0.status)
+                        statusColor: planStatusColor($0.status)
                     )
                 },
                 currencyCode: debt.currencyCode
@@ -904,15 +904,15 @@ private struct DebtDetailScreen: View {
                         .foregroundStyle(.secondary)
                 }
             } else {
-                TimelineSection(
-                    title: AppText.string("detail.plans", defaultValue: "Repayment Plan"),
+                HorizontalPlanCarousel(
                     rows: detail.plans.prefix(12).map {
-                        TimelineRowData(
+                        HorizontalPlanRow(
+                            id: $0.id.uuidString,
                             title: String(format: AppText.string("format.period", defaultValue: "Period %d"), $0.periodIndex),
                             date: $0.dueDate,
                             amount: $0.remainingAmount,
                             status: AppText.personalPlanStatus($0.status),
-                            color: personalPlanStatusColor($0.status)
+                            statusColor: personalPlanStatusColor($0.status)
                         )
                     },
                     currencyCode: Locale.current.currency?.identifier ?? "USD"
@@ -2261,15 +2261,12 @@ private struct AddDebtSheet: View {
     @State private var amountText = ""
     @State private var interestText = "0"
     @State private var fixedInterestText = "0"
-    @State private var loanEntryMode: LoanEntryMode = .newLoan
     @State private var billingDay = 1
     @State private var dueDay = 20
     @State private var repaymentDay = 20
     @State private var startDate = Date()
-    @State private var managementStartDate = Date()
     @State private var endDate = Calendar.current.date(byAdding: .month, value: 12, to: Date()) ?? Date()
     @State private var termCount = 12
-    @State private var openingPrincipalText = ""
     @State private var statementAmountText = ""
     @State private var minimumPaymentText = ""
     @State private var loanMethod: LoanRepaymentMethod = .equalPayment
@@ -2335,13 +2332,6 @@ private struct AddDebtSheet: View {
         }
     }
 
-    private var loanPrincipalTitle: String {
-        if loanEntryMode == .inProgressLoan {
-            return AppText.string("field.originalPrincipal", defaultValue: "Original Principal")
-        }
-        return AppText.string("field.principal", defaultValue: "Principal")
-    }
-
     private var calculatedLoanTermCount: Int? {
         guard debtType == .loan else { return nil }
         guard startDate <= endDate else { return nil }
@@ -2350,15 +2340,13 @@ private struct AddDebtSheet: View {
             name: name.isEmpty ? "Preview Loan" : name,
             creditorName: counterparty,
             note: note,
-            entryMode: loanEntryMode,
+            entryMode: .newLoan,
             repaymentMethod: loanMethod,
             originalPrincipal: max(decimal(from: amountText), 1),
-            openingPrincipalForManagement: loanEntryMode == .inProgressLoan
-                ? max(decimalOptional(from: openingPrincipalText) ?? decimal(from: amountText), 1)
-                : nil,
+            openingPrincipalForManagement: nil,
             annualInterestRate: max(decimal(from: interestText) / 100, 0),
             startDate: startDate,
-            managementStartDate: loanEntryMode == .inProgressLoan ? managementStartDate : nil,
+            managementStartDate: nil,
             endDate: endDate,
             repaymentDay: repaymentDay,
             termCount: 1,
@@ -2388,31 +2376,17 @@ private struct AddDebtSheet: View {
             }
         case .loan:
             Section(AppText.string("debtType.loan", defaultValue: "Loan")) {
-                FormPickerRow(title: AppText.string("field.entryMode", defaultValue: "Loan Stage"), selection: $loanEntryMode) {
-                    Text(AppText.string("loanEntryMode.newLoan", defaultValue: "New Loan")).tag(LoanEntryMode.newLoan)
-                    Text(AppText.string("loanEntryMode.inProgressLoan", defaultValue: "In Progress Loan")).tag(LoanEntryMode.inProgressLoan)
-                }
                 FormTextInputRow(
-                    title: loanPrincipalTitle,
+                    title: AppText.string("field.principal", defaultValue: "Principal"),
                     text: $amountText,
                     keyboardType: .decimalPad
                 )
-                if loanEntryMode == .inProgressLoan {
-                    FormTextInputRow(
-                        title: AppText.string("field.openingPrincipalForManagement", defaultValue: "Outstanding Principal at Management Start"),
-                        text: $openingPrincipalText,
-                        keyboardType: .decimalPad
-                    )
-                }
                 FormTextInputRow(
                     title: AppText.string("field.annualRatePercent", defaultValue: "Annual Rate (%)"),
                     text: $interestText,
                     keyboardType: .decimalPad
                 )
                 WheelDateFieldRow(title: AppText.string("field.startDate", defaultValue: "Start Date"), date: $startDate)
-                if loanEntryMode == .inProgressLoan {
-                    WheelDateFieldRow(title: AppText.string("field.managementStartDate", defaultValue: "Management Start Date"), date: $managementStartDate)
-                }
                 WheelDateFieldRow(title: AppText.string("field.endDate", defaultValue: "End Date"), date: $endDate)
                 FormStepperRow(title: AppText.string("field.repaymentDay", defaultValue: "Repayment Day"), value: $repaymentDay, range: 1...31)
                 FormReadOnlyRow(
@@ -2426,24 +2400,9 @@ private struct AddDebtSheet: View {
                 }
                 InlineNotice(
                     style: .info,
-                    title: AppText.string("loan.termCountAutoTitle", defaultValue: "Term count is automatic"),
-                    message: loanEntryMode == .inProgressLoan
-                        ? AppText.string("loan.inProgressAutoSettledCopy", defaultValue: "For in-progress loans, all plans before the current managed period are treated as fully paid, so you do not need to backfill historical payments.")
-                        : AppText.string("loan.termCountAutoCopy", defaultValue: "The app calculates the total number of periods automatically from the start date, end date, and repayment day.")
+                    title: AppText.string("loan.lifecycleAutoTitle", defaultValue: "Loan stage is inferred"),
+                    message: AppText.string("loan.lifecycleAutoCopy", defaultValue: "The app determines whether this loan is upcoming, in progress or already completed from the start and end dates. Earlier periods are assumed settled by default.")
                 )
-            }
-            .onChange(of: loanEntryMode) {
-                if loanEntryMode == .inProgressLoan {
-                    managementStartDate = max(managementStartDate, startDate)
-                    if openingPrincipalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        openingPrincipalText = amountText
-                    }
-                }
-            }
-            .onChange(of: startDate) {
-                if loanEntryMode == .inProgressLoan, managementStartDate < startDate {
-                    managementStartDate = startDate
-                }
             }
         case .personalLending:
             Section(AppText.string("debtType.personalLending", defaultValue: "Personal Lending")) {
@@ -2516,17 +2475,14 @@ private struct AddDebtSheet: View {
                 )
             case .loan:
                 _ = try LoanDebtService(modelContext: modelContext, writeAccessAuthorizer: subscriptionStore).createDebt(
-                    LoanDebtInput(
+                    makeAutoDetectedLoanInput(
                         name: name,
                         creditorName: counterparty,
                         note: note,
-                        entryMode: loanEntryMode,
                         repaymentMethod: loanMethod,
                         originalPrincipal: decimal(from: amountText),
-                        openingPrincipalForManagement: loanEntryMode == .inProgressLoan ? decimalOptional(from: openingPrincipalText) : nil,
                         annualInterestRate: decimal(from: interestText) / 100,
                         startDate: startDate,
-                        managementStartDate: loanEntryMode == .inProgressLoan ? managementStartDate : nil,
                         endDate: endDate,
                         repaymentDay: repaymentDay,
                         termCount: calculatedLoanTermCount ?? 1,
@@ -4149,6 +4105,62 @@ private struct TimelineSection: View {
     }
 }
 
+private struct HorizontalPlanRow: Identifiable {
+    var id: String
+    var title: String
+    var date: Date
+    var amount: Decimal
+    var status: String
+    var statusColor: Color
+
+    init(id: String, title: String, date: Date, amount: Decimal, status: String, statusColor: Color) {
+        self.id = id
+        self.title = title
+        self.date = date
+        self.amount = amount
+        self.status = status
+        self.statusColor = statusColor
+    }
+}
+
+private struct HorizontalPlanCarousel: View {
+    var rows: [HorizontalPlanRow]
+    var currencyCode: String
+
+    var body: some View {
+        SectionCard(title: AppText.string("detail.plans", defaultValue: "Repayment Plan")) {
+            if rows.isEmpty {
+                Text(AppText.string("empty.noPlans", defaultValue: "No plans"))
+                    .foregroundStyle(.secondary)
+            } else {
+                ScrollView(.horizontal, showsIndicators: false) {
+                    LazyHStack(alignment: .top, spacing: 10) {
+                        ForEach(rows) { row in
+                            VStack(alignment: .leading, spacing: 6) {
+                                HStack {
+                                    Text(row.title)
+                                        .font(.subheadline.weight(.semibold))
+                                    Spacer(minLength: 8)
+                                    StatusChip(title: row.status, color: row.statusColor)
+                                }
+                                Text(AppText.date(row.date))
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                Text(AppText.money(row.amount, currencyCode: currencyCode))
+                                    .font(.subheadline.weight(.semibold))
+                            }
+                            .padding(10)
+                            .frame(width: 196, alignment: .leading)
+                            .background(DebtTheme.secondaryBackground, in: RoundedRectangle(cornerRadius: 12))
+                        }
+                    }
+                    .padding(.horizontal, 2)
+                }
+            }
+        }
+    }
+}
+
 private struct ChartCard<Content: View>: View {
     var title: String
     var explanation: String
@@ -4743,6 +4755,38 @@ private func makePaymentRows(
     return (cards + loanRows + personalRows).sorted { $0.date > $1.date }
 }
 
+func makeAutoDetectedLoanInput(
+    name: String,
+    creditorName: String,
+    note: String,
+    repaymentMethod: LoanRepaymentMethod,
+    originalPrincipal: Decimal,
+    annualInterestRate: Decimal,
+    startDate: Date,
+    endDate: Date,
+    repaymentDay: Int,
+    termCount: Int,
+    currencyCode: String
+) -> LoanDebtInput {
+    LoanDebtInput(
+        name: name,
+        creditorName: creditorName,
+        note: note,
+        entryMode: .newLoan,
+        repaymentMethod: repaymentMethod,
+        originalPrincipal: originalPrincipal,
+        openingPrincipalForManagement: nil,
+        annualInterestRate: annualInterestRate,
+        startDate: startDate,
+        managementStartDate: nil,
+        endDate: endDate,
+        repaymentDay: repaymentDay,
+        termCount: termCount,
+        currencyCode: currencyCode,
+        autoDetectLifecycleFromDates: true
+    )
+}
+
 private func decimal(from text: String) -> Decimal {
     Decimal(string: text.trimmingCharacters(in: .whitespacesAndNewlines)) ?? 0
 }
@@ -4853,6 +4897,18 @@ private func planStatusColor(_ status: PlanStatus) -> Color {
     case .overdue:
         return DebtTheme.danger
     }
+}
+
+private func loanPlanDisplayAmount(_ plan: LoanRepaymentPlan) -> Decimal {
+    // Prefer generated installment total; fall back to persisted components for legacy/edge data.
+    if plan.scheduledTotalAmount > 0 {
+        return plan.scheduledTotalAmount
+    }
+    let generatedTotal = plan.scheduledPrincipal + plan.scheduledInterest
+    if generatedTotal > 0 {
+        return generatedTotal
+    }
+    return maxDecimal(plan.remainingPrincipal + plan.remainingInterest, plan.remainingTotalAmount)
 }
 
 private func personalPlanStatusColor(_ status: PersonalLendingPlanStatus) -> Color {

@@ -296,6 +296,50 @@ struct CreditCardRulePersistenceTests {
     }
 
     @Test
+    func completedAutoDetectedLoanStaysPaidOffAfterRuleRefresh() throws {
+        let container = try makeContainer()
+        let context = container.mainContext
+        let service = LoanDebtService(modelContext: context)
+        let today = date(2026, 5, 21)
+        let (_, debt, plans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Completed Loan",
+                creditorName: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 1_200,
+                annualInterestRate: decimal("0.12"),
+                startDate: date(2025, 1, 1),
+                endDate: date(2025, 12, 1),
+                repaymentDay: 1,
+                termCount: 1,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
+        )
+
+        _ = try service.upsertCalculationRule(
+            input: LoanCalculationRuleInput(
+                overdueFeeMode: .fixed,
+                fixedOverdueFee: 5,
+                penaltyInterestMode: .zero
+            ),
+            today: today
+        )
+
+        let storedOverdues = try context.fetch(FetchDescriptor<LoanOverdueRecord>())
+
+        #expect(storedOverdues.isEmpty)
+        #expect(debt.status == .paidOff)
+        #expect(debt.outstandingPrincipal == 0)
+        #expect(plans.allSatisfy { $0.status == .paid })
+        #expect(plans.allSatisfy { $0.remainingTotalAmount == 0 })
+        #expect(plans.allSatisfy { $0.paidPrincipal == $0.scheduledPrincipal })
+        #expect(plans.allSatisfy { $0.paidInterest == $0.scheduledInterest })
+    }
+
+    @Test
     func loanRuleRefreshDoesNotOverwriteManualOverdue() throws {
         let container = try makeContainer()
         let context = container.mainContext

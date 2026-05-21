@@ -75,6 +75,28 @@ struct AppUserSettingsTests {
     }
 
     @Test
+    func autoDetectedLoanInputUsesDateDrivenLifecycleWithoutManualOverrides() {
+        let input = makeAutoDetectedLoanInput(
+            name: "Loan",
+            creditorName: "Bank",
+            note: "Auto",
+            repaymentMethod: .equalPayment,
+            originalPrincipal: 1_200,
+            annualInterestRate: Decimal(string: "0.12") ?? 0,
+            startDate: Date(timeIntervalSinceReferenceDate: 100),
+            endDate: Date(timeIntervalSinceReferenceDate: 200),
+            repaymentDay: 15,
+            termCount: 6,
+            currencyCode: "USD"
+        )
+
+        #expect(input.entryMode == .newLoan)
+        #expect(input.openingPrincipalForManagement == nil)
+        #expect(input.managementStartDate == nil)
+        #expect(input.autoDetectLifecycleFromDates)
+    }
+
+    @Test
     func uiTestDataResetterClearsProjectModelsAndSeedsSettings() throws {
         #if DEBUG
         let schema = Schema([

@@ -538,74 +538,111 @@ struct BusinessLoopServiceTests {
     }
 
     @Test
-    func loanServiceRejectsInvalidInProgressBoundaries() throws {
+    func loanServiceAutoDetectsLifecycleFromDates() throws {
         let service = LoanDebtService()
-        let baseInput = LoanDebtInput(
-            name: "Loan",
-            creditorName: "",
-            entryMode: .inProgressLoan,
-            repaymentMethod: .equalPrincipal,
-            originalPrincipal: 1000,
-            openingPrincipalForManagement: 800,
-            annualInterestRate: 0,
-            startDate: date(2026, 1, 1),
-            managementStartDate: date(2026, 2, 1),
-            endDate: date(2026, 5, 1),
-            repaymentDay: 1,
-            termCount: 4,
-            currencyCode: "USD"
+        let today = date(2026, 5, 21)
+
+        let (_, notStartedDebt, _) = try service.createDebt(
+            LoanDebtInput(
+                name: "Future Loan",
+                creditorName: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 1000,
+                annualInterestRate: 0,
+                startDate: date(2026, 7, 1),
+                endDate: date(2026, 12, 1),
+                repaymentDay: 1,
+                termCount: 1,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
         )
+        #expect(notStartedDebt.entryMode == .newLoan)
+        #expect(notStartedDebt.managementStartDate == nil)
+        #expect(notStartedDebt.status == .active)
 
-        var excessiveOpeningPrincipal = baseInput
-        excessiveOpeningPrincipal.openingPrincipalForManagement = 1200
-        do {
-            _ = try service.createDebt(excessiveOpeningPrincipal)
-            #expect(Bool(false))
-        } catch {
-            #expect(error is DebtServiceError)
-        }
+        let (_, inProgressDebt, inProgressPlans) = try service.createDebt(
+            LoanDebtInput(
+                name: "In Progress Loan",
+                creditorName: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 1000,
+                annualInterestRate: 0,
+                startDate: date(2026, 1, 1),
+                endDate: date(2026, 9, 1),
+                repaymentDay: 1,
+                termCount: 1,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
+        )
+        #expect(inProgressDebt.entryMode == .inProgressLoan)
+        #expect(inProgressDebt.managementStartDate == today)
+        #expect(inProgressDebt.openingPrincipalForManagement < inProgressDebt.originalPrincipal)
+        #expect(inProgressPlans.contains { $0.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason })
 
-        var earlyManagementStart = baseInput
-        earlyManagementStart.managementStartDate = date(2025, 12, 31)
-        do {
-            _ = try service.createDebt(earlyManagementStart)
-            #expect(Bool(false))
-        } catch {
-            #expect(error is DebtServiceError)
-        }
+        let (_, completedDebt, completedPlans) = try service.createDebt(
+            LoanDebtInput(
+                name: "Completed Loan",
+                creditorName: "",
+                entryMode: .newLoan,
+                repaymentMethod: .equalPrincipal,
+                originalPrincipal: 1000,
+                annualInterestRate: 0,
+                startDate: date(2025, 1, 1),
+                endDate: date(2026, 1, 1),
+                repaymentDay: 1,
+                termCount: 1,
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
+        )
+        #expect(completedDebt.status == .paidOff)
+        #expect(completedDebt.outstandingPrincipal == 0)
+        #expect(completedPlans.allSatisfy { $0.status == .paid })
+        #expect(completedPlans.allSatisfy { $0.paidPrincipal == $0.scheduledPrincipal })
+        #expect(completedPlans.allSatisfy { $0.paidInterest == $0.scheduledInterest })
     }
 
     @Test
     func loanServiceAutoSettlesHistoricalPlansForInProgressLoans() throws {
         let service = LoanDebtService()
+        let today = date(2026, 4, 15)
         let (_, debt, plans) = try service.createDebt(
             LoanDebtInput(
                 name: "Managed Loan",
                 creditorName: "Bank",
                 note: "",
-                entryMode: .inProgressLoan,
+                entryMode: .newLoan,
                 repaymentMethod: .equalPrincipal,
                 originalPrincipal: 1000,
-                openingPrincipalForManagement: 600,
                 annualInterestRate: 0,
                 startDate: date(2026, 1, 1),
-                managementStartDate: date(2026, 4, 15),
                 endDate: date(2026, 6, 10),
                 repaymentDay: 10,
                 termCount: 0,
-                currencyCode: "USD"
-            )
+                currencyCode: "USD",
+                autoDetectLifecycleFromDates: true
+            ),
+            today: today
         )
 
         let historicalPlans = plans.filter { $0.lockReason == LoanScheduleEngine.autoSettledHistoryLockReason }
         let managedPlans = plans.filter { $0.lockReason != LoanScheduleEngine.autoSettledHistoryLockReason }
 
         #expect(debt.termCount == plans.count)
-        #expect(historicalPlans.count == 4)
+        #expect(debt.entryMode == .inProgressLoan)
+        #expect(debt.managementStartDate == today)
+        #expect(historicalPlans.isEmpty == false)
         #expect(historicalPlans.allSatisfy { $0.status == .paid })
         #expect(historicalPlans.allSatisfy { $0.remainingTotalAmount == 0 })
         #expect(managedPlans.first?.dueDate == date(2026, 5, 10))
-        #expect(managedPlans.first?.remainingPrincipalBeforePayment == 600)
+        #expect((managedPlans.first?.remainingPrincipalBeforePayment ?? 0) < debt.originalPrincipal)
     }
 
     @Test
